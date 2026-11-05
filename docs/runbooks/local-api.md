@@ -24,4 +24,12 @@ A successful response contains a durable `DRAFT` campaign. `GET /v1/campaigns` s
 
 Responses include `data`, `errors`, and `meta` with request ID, correlation trace ID, and schema version. Trace IDs currently correlate API/audit records; distributed tracing export is not yet implemented. `/health/live`, `/health/ready`, and `/v1/system/capabilities` expose operational status. Capabilities explicitly distinguish unimplemented simulation/oracle features and unconfigured NVIDIA providers.
 
-The API currently creates and reads drafts. Planning, independent approvals, execution, measurement release, and reports are not yet available.
+The API supports draft creation, planning, and independent review. Execution, measurement release, and reports are not yet available.
+
+## Planning and review
+
+`POST /v1/campaigns/{id}/plan` accepts `{"expected_version": 0}` for a new draft plus an idempotency key. The initial planner is a seeded random baseline over the registered candidate pool. It persists a water-placeholder work order and returns `AWAITING_APPROVAL`, `run_spec`, and `plan_hash`. The campaign version advances; read it again before another mutation.
+
+A reviewer lists `/v1/approvals/pending` or reads `/v1/campaigns/{id}/batches/{batch_id}`. Approve or reject by posting `{"expected_version": 0, "plan_hash": "sha256:..."}` to the corresponding `/approve` or `/reject` endpoint with a new idempotency key. The reviewer must differ from the proposer. The hash must match the full immutable work order; stale versions and changed hashes conflict. Approvals expire after one hour and must be rechecked before dispatch.
+
+Approval transactionally reserves unique candidate IDs against the campaign budget and creates an approved run with an audit event. `budget_used` currently means reserved unique selections, not observed measurements. Rejection leaves the budget unchanged and allows a new proposal revision. The previous batch must be rejected or analyzed before another proposal is accepted. Simulation dispatch and measurement release are not yet connected to these endpoints.

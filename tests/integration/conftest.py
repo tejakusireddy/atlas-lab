@@ -26,6 +26,13 @@ def database() -> Iterator[Connection]:
                 "INSERT INTO dataset_groups VALUES (%s,%s,48)",
                 ("synthetic-snapshot", "synthetic-group"),
             )
+            for index in range(48):
+                connection.execute(
+                    """INSERT INTO dataset_candidates
+                    (snapshot_id,candidate_id,group_id,reaction_key,input_record)
+                    VALUES ('synthetic-snapshot',%s,'synthetic-group',%s,'{}')""",
+                    (f"synthetic-{index}", f"synthetic-reaction-{index}"),
+                )
             yield connection
         finally:
             connection.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))

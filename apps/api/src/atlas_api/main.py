@@ -17,6 +17,14 @@ from atlas_campaigns.service import (
     get_campaign,
     list_campaigns,
 )
+from atlas_campaigns.workflow import (
+    DecisionCommand,
+    Forbidden,
+    ProposeCommand,
+    decide_batch,
+    get_batch,
+    propose_batch,
+)
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -102,6 +110,13 @@ def create_app() -> FastAPI:
             headers=error.headers,
         )
 
+    @app.exception_handler(Forbidden)
+    async def forbidden(request: Request, error: Forbidden) -> JSONResponse:
+        return JSONResponse(
+            envelope(request, errors=[{"code": "forbidden", "message": str(error)}]),
+            status_code=403,
+        )
+
     @app.exception_handler(Conflict)
     async def conflict(request: Request, error: Conflict) -> JSONResponse:
         return JSONResponse(
@@ -142,7 +157,7 @@ def create_app() -> FastAPI:
                 "execution_mode": "simulation",
                 "physical_dispatch": False,
                 "campaign_persistence": True,
-                "protocol_simulator": "not_implemented",
+                "protocol_simulator": "standalone_available",
                 "oracle_replay": "not_implemented",
                 "nvidia_providers": "not_configured",
                 "auth_profile": "local_demo"
@@ -195,6 +210,108 @@ def create_app() -> FastAPI:
                 connection.execute(
                     "SELECT snapshot_id,group_id,eligible_count FROM dataset_groups "
                     "ORDER BY snapshot_id,group_id"
+                )
+            ),
+        )
+
+    @app.post("/v1/campaigns/{campaign_id}/plan", status_code=201)
+    def plan(
+        request: Request,
+        campaign_id: UUID,
+        command: ProposeCommand,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        if identity.role != "scientist":
+            raise HTTPException(403, "Scientist role required")
+        return envelope(
+            request,
+            propose_batch(
+                connection,
+                campaign_id,
+                command,
+                identity.actor,
+                idempotency_key,
+                UUID(request.state.request_id),
+                request.state.trace_id,
+            ),
+        )
+
+    @app.get("/v1/campaigns/{campaign_id}/batches/{batch_id}")
+    def batch(
+        request: Request,
+        campaign_id: UUID,
+        batch_id: UUID,
+        identity: Identity,
+        connection: Database,
+    ) -> dict[str, Any]:
+        return envelope(
+            request, get_batch(connection, campaign_id, batch_id, identity.actor, identity.role)
+        )
+
+    @app.post("/v1/campaigns/{campaign_id}/batches/{batch_id}/approve")
+    def approve(
+        request: Request,
+        campaign_id: UUID,
+        batch_id: UUID,
+        command: DecisionCommand,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        return envelope(
+            request,
+            decide_batch(
+                connection,
+                campaign_id,
+                batch_id,
+                command,
+                "APPROVE",
+                identity.actor,
+                identity.role,
+                idempotency_key,
+                UUID(request.state.request_id),
+                request.state.trace_id,
+            ),
+        )
+
+    @app.post("/v1/campaigns/{campaign_id}/batches/{batch_id}/reject")
+    def reject(
+        request: Request,
+        campaign_id: UUID,
+        batch_id: UUID,
+        command: DecisionCommand,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        return envelope(
+            request,
+            decide_batch(
+                connection,
+                campaign_id,
+                batch_id,
+                command,
+                "REJECT",
+                identity.actor,
+                identity.role,
+                idempotency_key,
+                UUID(request.state.request_id),
+                request.state.trace_id,
+            ),
+        )
+
+    @app.get("/v1/approvals/pending")
+    def pending(request: Request, identity: Identity, connection: Database) -> dict[str, Any]:
+        if identity.role != "reviewer":
+            raise HTTPException(403, "Reviewer role required")
+        return envelope(
+            request,
+            list(
+                connection.execute(
+                    "SELECT * FROM experiment_batches WHERE status='AWAITING_APPROVAL' "
+                    "ORDER BY created_at,id LIMIT 100"
                 )
             ),
         )

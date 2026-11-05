@@ -8,7 +8,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 ## Project status
 
-**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning and execution remain in development.
+**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning and independent review are available; execution integration remains in development.
 
 | Deliverable | Status |
 | --- | --- |
@@ -18,7 +18,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | CPU predictive baselines | Random Forest and CatBoost evaluation available |
 | Sequential evaluator | Random, diversity, greedy, and ensemble acquisition implemented |
 | PostgreSQL campaign persistence | Available with idempotency, audit, and outbox transactions |
-| Campaign HTTP API | Dataset registration, draft creation, and owner-scoped reads |
+| Campaign HTTP API | Dataset registration, drafts, immutable plans, and independent approvals |
 | Simulation work orders | Validated contract, deterministic compiler, and tested Opentrons worker |
 | Approved simulation and historical replay loop | Planned — G1 |
 | Durable execution, reconciliation, and telemetry | Planned — G2 |

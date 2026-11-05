@@ -85,3 +85,22 @@ def test_authentication_is_disabled_by_default(
     caps = client.get("/v1/system/capabilities").json()["data"]
     assert caps["physical_dispatch"] is False
     assert caps["auth_profile"] == "disabled"
+
+
+def test_http_proposal_and_independent_review(client: TestClient) -> None:
+    campaign = client.post("/v1/campaigns", json=payload(), headers=headers()).json()["data"]
+    proposed = client.post(
+        f"/v1/campaigns/{campaign['id']}/plan",
+        json={"expected_version": 0},
+        headers=headers("plan"),
+    )
+    assert proposed.status_code == 201
+    batch = proposed.json()["data"]
+    pending = client.get("/v1/approvals/pending", headers=headers(actor="reviewer"))
+    assert pending.json()["data"][0]["id"] == batch["id"]
+    url = f"/v1/campaigns/{campaign['id']}/batches/{batch['id']}/approve"
+    body = {"expected_version": 0, "plan_hash": batch["plan_hash"]}
+    assert client.post(url, json=body, headers=headers("approve")).status_code == 403
+    approved = client.post(url, json=body, headers=headers("approve", actor="reviewer"))
+    assert approved.status_code == 200
+    assert approved.json()["data"]["status"] == "APPROVED"

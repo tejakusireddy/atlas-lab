@@ -9,6 +9,7 @@ from pathlib import Path
 from atlas_campaigns.database import connect
 from atlas_campaigns.service import Conflict
 from atlas_science.records import Candidate
+from psycopg.types.json import Jsonb
 
 
 def main() -> None:
@@ -64,6 +65,20 @@ def main() -> None:
             for group_id, count in eligible.items():
                 connection.execute(
                     "INSERT INTO dataset_groups VALUES (%s,%s,%s)", (snapshot_id, group_id, count)
+                )
+        for candidate in candidates:
+            if candidate.group_id in eligible:
+                connection.execute(
+                    """INSERT INTO dataset_candidates
+                    (snapshot_id,candidate_id,group_id,reaction_key,input_record)
+                    VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                    (
+                        snapshot_id,
+                        candidate.candidate_id,
+                        candidate.group_id,
+                        candidate.reaction_key,
+                        Jsonb(candidate.model_dump(mode="json")),
+                    ),
                 )
     print(json.dumps({"snapshot_id": snapshot_id, "eligible_groups": len(eligible)}, indent=2))
 
