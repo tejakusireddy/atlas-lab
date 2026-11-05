@@ -6,17 +6,13 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from atlas_campaigns.database import connect
+from atlas_campaigns.database import Connection, connect
 from atlas_campaigns.service import Conflict
 from atlas_science.records import Candidate
 from psycopg.types.json import Jsonb
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("snapshot", type=Path)
-    args = parser.parse_args()
-    snapshot: Path = args.snapshot
+def register_snapshot(connection: Connection, snapshot: Path) -> str:
     manifest_bytes = (snapshot / "source_manifest.json").read_bytes()
     manifest = json.loads(manifest_bytes)
     candidate_bytes = (snapshot / "candidates.jsonl").read_bytes()
@@ -49,7 +45,7 @@ def main() -> None:
         raise ValueError("Candidate eligibility differs from quality report")
     digest = "sha256:" + hashlib.sha256(manifest_bytes).hexdigest()
     snapshot_id = f"{manifest['source']}:{digest}"
-    with connect() as connection, connection.transaction():
+    with connection.transaction():
         connection.execute("SELECT pg_advisory_xact_lock(737164921)")
         previous = connection.execute(
             "SELECT manifest_hash FROM dataset_snapshots WHERE id=%s", (snapshot_id,)
@@ -80,7 +76,16 @@ def main() -> None:
                         Jsonb(candidate.model_dump(mode="json")),
                     ),
                 )
-    print(json.dumps({"snapshot_id": snapshot_id, "eligible_groups": len(eligible)}, indent=2))
+    return snapshot_id
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("snapshot", type=Path)
+    args = parser.parse_args()
+    with connect() as connection:
+        snapshot_id = register_snapshot(connection, args.snapshot)
+    print(json.dumps({"snapshot_id": snapshot_id}, indent=2))
 
 
 if __name__ == "__main__":

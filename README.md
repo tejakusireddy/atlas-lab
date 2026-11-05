@@ -20,7 +20,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | PostgreSQL campaign persistence | Available with idempotency, audit, and outbox transactions |
 | Campaign HTTP API | Dataset registration, drafts, immutable plans, and independent approvals |
 | Simulation work orders | Validated contract, deterministic compiler, and tested Opentrons worker |
-| Approved simulation and historical replay loop | Six-batch random-baseline loop verified with 48 historical observations |
+| Approved simulation and historical replay loop | Reproducible six-batch HTTP workflow verified twice against real source data and simulator |
 | Durable execution, reconciliation, and telemetry | Single-attempt dispatch and receipt reconciliation available; tracing export pending |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
 | Research evaluation and demonstration artifacts | Planned — G4 |
@@ -79,6 +79,12 @@ Runs paired policies on historical candidates, with eight shared initial selecti
 ## Simulation work orders
 
 The first Flex profile compiles validated water-placeholder transfers from immutable typed work orders. The [generated schema](contracts/experiment_runspec.schema.json) and [approval hash decision](docs/adr/001-approval-hash-boundary.md) define the supported boundary. The isolated Opentrons 10.1.0 worker passes real one-, eight-, and 96-transfer simulation tests. See the [simulator runbook](docs/runbooks/simulator.md). Approved runs dispatch through the PostgreSQL outbox. `make workflow` verifies HTTP approval and dispatch through the real simulator.
+
+## Deterministic reference milestone
+
+After importing the pinned Doyle snapshot and building the simulator image, run `make reference-workflow`. The test creates two isolated campaigns through the HTTP API, each with six independent-role approval gates, six real Docker simulations, and 48 unique source-backed observations. It compares candidate/outcome trajectories for the same seed, verifies receipt and snapshot hashes, rejects stale snapshot references and exhausted budgets, and guards oracle-file access outside the release worker. Integration tests also exercise concurrent completion/proposal requests and failure before commit.
+
+The reference selector is versioned seeded random; model-guided acquisition remains pending. LangGraph and NVIDIA integration work is deferred until this deterministic reference is established and retained as a regression gate. CI includes the reference test; hosted results remain pending a push.
 
 ## NVIDIA delivery scope
 
