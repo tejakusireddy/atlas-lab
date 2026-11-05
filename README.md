@@ -16,6 +16,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | Doyle dataset import and provenance | Available; 4,312 candidates across 15 eligible groups |
 | Group splits and finite-pool selection | Available with leakage, uniqueness, and budget checks |
 | CPU predictive baselines | Random Forest and CatBoost evaluation available |
+| Sequential evaluator | Random, diversity, greedy, and ensemble acquisition implemented |
 | Approved simulation and historical replay loop | Planned — G1 |
 | Durable execution, reconciliation, and telemetry | Planned — G2 |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
@@ -42,6 +43,14 @@ uv run --locked atlas-baseline --output artifacts/baseline-42 --seed 42
 ```
 
 Produces held-out predictions, metrics, models, provenance manifests, and MLflow runs. See [evaluation procedure and limitations](docs/reproducibility/cpu-baselines.md).
+
+## Sequential evaluation
+
+```sh
+uv run --locked atlas-benchmark --output artifacts/sequential-5-seeds
+```
+
+Runs paired policies on historical candidates, with eight shared initial selections and a 48-selection budget. See [benchmark scope and limitations](docs/reproducibility/sequential-benchmark.md). This evaluator does not execute robot simulations.
 
 ## NVIDIA delivery scope
 

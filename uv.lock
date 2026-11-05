@@ -216,6 +216,7 @@ version = "0.1.0"
 source = { editable = "packages/science" }
 dependencies = [
     { name = "atlas-domain" },
+    { name = "atlas-optimization" },
     { name = "catboost" },
     { name = "joblib" },
     { name = "matplotlib" },
@@ -231,6 +232,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "atlas-domain", editable = "packages/domain" },
+    { name = "atlas-optimization", editable = "packages/optimization" },
     { name = "catboost", specifier = ">=1.2" },
     { name = "joblib", specifier = ">=1.4" },
     { name = "matplotlib", specifier = ">=3.10" },
