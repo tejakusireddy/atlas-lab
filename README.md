@@ -14,7 +14,8 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | --- | --- |
 | Python tooling and CI configuration | Available; hosted CI pending first push |
 | Doyle dataset import and provenance | Available; 4,312 candidates across 15 eligible groups |
-| Split validation and CPU baselines | Planned — G0 |
+| Group splits and finite-pool selection | Available with leakage, uniqueness, and budget checks |
+| CPU predictive baselines | Next — G0 |
 | Approved simulation and historical replay loop | Planned — G1 |
 | Durable execution, reconciliation, and telemetry | Planned — G2 |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
@@ -59,7 +60,7 @@ make audit
 uv run pre-commit install
 ```
 
-`make check` runs Ruff, strict mypy, and unit tests. Dependencies are pinned in `uv.lock`; CI uses the same commands. Install the optional Git hooks with the final command.
+`make check` runs Ruff, strict mypy, unit tests, and scientific integrity tests. Dependencies are pinned in `uv.lock`; CI uses the same commands. Install the optional Git hooks with the final command.
 
 
 Changes are delivered as small, independently validated commits. The README tracks implemented capabilities and setup instructions as they become available. See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.

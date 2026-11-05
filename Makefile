@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck unit check audit
+.PHONY: setup lint format typecheck unit science check audit
 setup:
 	uv sync --locked --all-packages
 lint:
@@ -11,6 +11,8 @@ typecheck:
 	uv run --locked mypy packages tests
 unit:
 	uv run --locked pytest tests/unit
-check: lint typecheck unit
+science:
+	uv run --locked pytest tests/scientific
+check: lint typecheck unit science
 audit:
 	uv run --locked pip-audit
