@@ -1,0 +1,45 @@
+# Overlay on compose.yaml. Only release receives the private outcome volume.
+x-runtime: &runtime
+  image: atlas-runtime:local
+  build:
+    context: ../..
+    dockerfile: infra/runtime/Dockerfile
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp:rw,nosuid,size=256m]
+  pids_limit: 128
+  mem_limit: 2g
+  cpus: 2
+  environment:
+    ATLAS_DATABASE_URL: postgresql://atlas:atlas-local-only@postgres:5432/atlas
+    MLFLOW_DISABLE_AGENT_HINT: "1"
+  depends_on:
+    postgres:
+      condition: service_healthy
+services:
+  api:
+    <<: *runtime
+    user: "10001:10001"
+    environment:
+      ATLAS_DATABASE_URL: postgresql://atlas:atlas-local-only@postgres:5432/atlas
+      ATLAS_LOCAL_DEMO_AUTH: "true"
+    ports: ["127.0.0.1:8001:8000"]
+  planner:
+    <<: *runtime
+    user: "10003:10003"
+    profiles: [workers]
+    command: [python, -c, "from atlas_campaigns.workflow import propose_batch; print('planner ready')"]
+  trainer:
+    <<: *runtime
+    user: "10004:10004"
+    profiles: [workers]
+    command: [python, -c, "from atlas_science.decisions import decide; print('trainer ready')"]
+  release:
+    <<: *runtime
+    user: "10002:10002"
+    profiles: [workers]
+    volumes: [oracle-private:/private-snapshot:ro]
+    entrypoint: [atlas-reveal]
+volumes:
+  oracle-private:

@@ -1,0 +1,15 @@
+**
+!pyproject.toml
+!uv.lock
+!packages/
+!packages/**
+!apps/
+!apps/api/
+!apps/api/**
+!sql/
+!sql/**
+!infra/
+!infra/runtime/
+!infra/runtime/**
+**/__pycache__
+**/.venv
