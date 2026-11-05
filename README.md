@@ -8,11 +8,11 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 ## Project status
 
-**Early development; application implementation has not started.** There is no runnable application, validated migration, or measured benchmark yet.
+**Foundations in development.** The Python workspace provides deterministic artifact hashing and local quality checks. There is no runnable campaign application, validated migration, or measured benchmark yet.
 
 | Deliverable | Status |
 | --- | --- |
-| Development tooling and CI | Next |
+| Python tooling and CI configuration | Available; hosted CI pending first push |
 | Dataset import, split validation, and CPU baselines | Planned — G0 |
 | Approved simulation and historical replay loop | Planned — G1 |
 | Durable execution, reconciliation, and telemetry | Planned — G2 |
@@ -40,6 +40,18 @@ NVIDIA integrations are planned deliverables with explicit evaluation requiremen
 The CPU baseline establishes the comparison point for these integrations. Provider availability, model quality, and performance will be reported from executed evaluations.
 
 ## Development
+
+Requires Python 3.11 and uv 0.10.4. From the repository root:
+
+```sh
+make setup
+make check
+make audit
+uv run pre-commit install
+```
+
+`make check` runs Ruff, strict mypy, and unit tests. Dependencies are pinned in `uv.lock`; CI uses the same commands. Install the optional Git hooks with the final command.
+
 
 Changes are delivered as small, independently validated commits. The README tracks implemented capabilities and setup instructions as they become available. See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
