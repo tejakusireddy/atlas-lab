@@ -8,7 +8,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 ## Project status
 
-**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning, independent review, and durable dispatch to the real Opentrons simulator are available. Checksum-verified historical outcome release and immutable QC records are available.
+**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning, independent review, and durable dispatch to the real Opentrons simulator are available. Checksum-verified historical outcome release, immutable QC records, and analysis snapshots are available. The seeded-random campaign loop has completed six real simulator batches; model-guided updates remain pending.
 
 | Deliverable | Status |
 | --- | --- |
@@ -20,7 +20,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | PostgreSQL campaign persistence | Available with idempotency, audit, and outbox transactions |
 | Campaign HTTP API | Dataset registration, drafts, immutable plans, and independent approvals |
 | Simulation work orders | Validated contract, deterministic compiler, and tested Opentrons worker |
-| Approved simulation and historical replay loop | Approved simulation and selected historical replay available; analysis loop pending |
+| Approved simulation and historical replay loop | Six-batch random-baseline loop verified with 48 historical observations |
 | Durable execution, reconciliation, and telemetry | Single-attempt dispatch and receipt reconciliation available; tracing export pending |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
 | Research evaluation and demonstration artifacts | Planned — G4 |

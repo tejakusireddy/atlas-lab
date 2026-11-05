@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import psycopg
 import pytest
+from atlas_campaigns.analysis import analyze
 from atlas_campaigns.database import Connection
 from atlas_campaigns.execution import claim_next, enqueue_simulation, transition
 from atlas_campaigns.models import CreateCampaign
@@ -114,3 +115,33 @@ def test_release_gating_idempotency_and_no_synthetic_training(
     assert not list(database.execute("SELECT * FROM training_observations"))
     with pytest.raises(psycopg.errors.RaiseException), database.transaction():
         database.execute("DELETE FROM measurements WHERE run_id=%s", (run_id,))
+
+    run = database.execute("SELECT version FROM experiment_runs WHERE id=%s", (run_id,)).fetchone()
+    assert run is not None
+    result = analyze(database, run_id, run["version"], "scientist", "analyze", uuid4(), "trace")
+    assert result["snapshot"]["observations"] == []
+    assert result["snapshot"]["best_observed"] is None
+    assert (
+        analyze(database, run_id, run["version"], "scientist", "analyze", uuid4(), "trace")["id"]
+        == result["id"]
+    )
+    with pytest.raises(Conflict):
+        analyze(database, run_id, run["version"], "scientist", "new-analysis", uuid4(), "trace")
+    current = database.execute(
+        "SELECT version FROM campaigns WHERE id=%s", (campaign.id,)
+    ).fetchone()
+    assert current is not None
+    next_batch = propose_batch(
+        database,
+        campaign.id,
+        ProposeCommand(expected_version=current["version"]),
+        "scientist",
+        "next-plan",
+        uuid4(),
+        "trace",
+    )
+    assert not set(next_batch["run_spec"]["candidate_ids"]) & set(
+        batch["run_spec"]["candidate_ids"]
+    )
+    with pytest.raises(psycopg.errors.RaiseException), database.transaction():
+        database.execute("DELETE FROM campaign_analyses WHERE run_id=%s", (run_id,))
