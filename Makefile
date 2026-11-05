@@ -8,7 +8,7 @@ format:
 	uv run --locked ruff check --fix .
 	uv run --locked ruff format .
 typecheck:
-	uv run --locked mypy packages tests
+	uv run --locked mypy packages apps tests
 unit:
 	uv run --locked pytest tests/unit
 science:
