@@ -8,7 +8,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 ## Project status
 
-**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning, independent review, and durable dispatch to the real Opentrons simulator are available. Checksum-verified historical outcome release, immutable QC records, and analysis snapshots with receipt and prior-snapshot lineage are available. The seeded-random campaign loop has completed six real simulator batches; model-guided updates remain pending.
+**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning, independent review, and durable dispatch to the real Opentrons simulator are available. Checksum-verified historical outcome release, immutable QC records, and analysis snapshots with receipt and prior-snapshot lineage are available. Random, greedy, diversity, and ensemble-UCB campaigns are implemented; Random Forest and CatBoost model artifacts are retained with decision provenance.
 
 | Deliverable | Status |
 | --- | --- |
@@ -84,7 +84,7 @@ The first Flex profile compiles validated water-placeholder transfers from immut
 
 After importing the pinned Doyle snapshot and building the simulator image, run `make reference-workflow`. The test creates two isolated campaigns through the HTTP API, each with six independent-role approval gates, six real Docker simulations, and 48 unique source-backed observations. It compares candidate/outcome trajectories for the same seed, verifies receipt and snapshot hashes, rejects stale snapshot references and exhausted budgets, and guards oracle-file access outside the release worker. Integration tests also exercise concurrent completion/proposal requests and failure before commit.
 
-The reference selector is versioned seeded random; model-guided acquisition remains pending. LangGraph and NVIDIA integration work is deferred until this deterministic reference is established and retained as a regression gate. CI includes the reference test; hosted results remain pending a push.
+The seeded-random selector remains the reference. Greedy, diversity, and ensemble-UCB workflows are verified alongside it; model-backed runs use Random Forest or CatBoost. See [live acquisition](docs/reproducibility/live-acquisition.md). LangGraph and NVIDIA integration work is deferred until this deterministic reference is established and retained as a regression gate. CI includes the reference test; hosted results remain pending a push.
 
 ## NVIDIA delivery scope
 

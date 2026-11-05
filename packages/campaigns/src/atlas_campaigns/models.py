@@ -32,6 +32,8 @@ class CreateCampaign(Contract):
     campaign_group_id: str = Field(min_length=1, max_length=200)
     objective: Objective = Field(default_factory=Objective)
     budget: Budget = Field(default_factory=Budget)
+    acquisition_strategy: Literal["random", "greedy", "diversity", "ensemble_ucb"] = "random"
+    predictor: Literal["random_forest", "catboost"] = "random_forest"
     seed: int = Field(default=42, ge=0, le=2147483647, strict=True)
     mode: Literal["historical_replay_with_robot_simulation"] = (
         "historical_replay_with_robot_simulation"
@@ -47,6 +49,8 @@ class Campaign(Contract):
     batch_size: int
     budget_used: int
     seed: int
+    acquisition_strategy: str
+    predictor: str
     status: str
     version: int
     created_at: datetime

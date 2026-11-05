@@ -196,6 +196,7 @@ dependencies = [
     { name = "atlas-domain" },
     { name = "atlas-instrument-gateway" },
     { name = "atlas-optimization" },
+    { name = "atlas-science" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
 ]
@@ -205,6 +206,7 @@ requires-dist = [
     { name = "atlas-domain", editable = "packages/domain" },
     { name = "atlas-instrument-gateway", editable = "packages/instrument_gateway" },
     { name = "atlas-optimization", editable = "packages/optimization" },
+    { name = "atlas-science", editable = "packages/science" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.11,<3" },
 ]
