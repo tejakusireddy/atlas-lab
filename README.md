@@ -8,7 +8,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 ## Project status
 
-**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP campaign application and execution workflow are still in development.
+**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning, independent review, and durable dispatch to the real Opentrons simulator are available. Historical outcome release remains in development.
 
 | Deliverable | Status |
 | --- | --- |
@@ -18,8 +18,10 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | CPU predictive baselines | Random Forest and CatBoost evaluation available |
 | Sequential evaluator | Random, diversity, greedy, and ensemble acquisition implemented |
 | PostgreSQL campaign persistence | Available with idempotency, audit, and outbox transactions |
-| Approved simulation and historical replay loop | Planned — G1 |
-| Durable execution, reconciliation, and telemetry | Planned — G2 |
+| Campaign HTTP API | Dataset registration, drafts, immutable plans, and independent approvals |
+| Simulation work orders | Validated contract, deterministic compiler, and tested Opentrons worker |
+| Approved simulation and historical replay loop | Approved simulation verified; historical replay pending |
+| Durable execution, reconciliation, and telemetry | Single-attempt dispatch and receipt reconciliation available; tracing export pending |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
 | Research evaluation and demonstration artifacts | Planned — G4 |
 
@@ -38,6 +40,17 @@ make integration
 ```
 
 Requires Docker Desktop. See the [local database runbook](docs/runbooks/local-database.md) for connection settings and test isolation.
+
+## Local API
+
+After importing the dataset and migrating the database:
+
+```sh
+uv run --locked atlas-register data/snapshots/doyle2018-v1
+ATLAS_LOCAL_DEMO_AUTH=true uv run --locked atlas-api
+```
+
+The API listens on loopback port 8000. See the [local API runbook](docs/runbooks/local-api.md) for authentication, requests, and implemented capabilities.
 
 ## Dataset import
 
@@ -62,6 +75,10 @@ uv run --locked atlas-benchmark --output artifacts/sequential-5-seeds
 ```
 
 Runs paired policies on historical candidates, with eight shared initial selections and a 48-selection budget. See [benchmark scope and limitations](docs/reproducibility/sequential-benchmark.md). This evaluator does not execute robot simulations.
+
+## Simulation work orders
+
+The first Flex profile compiles validated water-placeholder transfers from immutable typed work orders. The [generated schema](contracts/experiment_runspec.schema.json) and [approval hash decision](docs/adr/001-approval-hash-boundary.md) define the supported boundary. The isolated Opentrons 10.1.0 worker passes real one-, eight-, and 96-transfer simulation tests. See the [simulator runbook](docs/runbooks/simulator.md). Approved runs dispatch through the PostgreSQL outbox. `make workflow` verifies HTTP approval and dispatch through the real simulator.
 
 ## NVIDIA delivery scope
 

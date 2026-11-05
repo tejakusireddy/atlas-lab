@@ -8,7 +8,7 @@ format:
 	uv run --locked ruff check --fix .
 	uv run --locked ruff format .
 typecheck:
-	uv run --locked mypy packages tests
+	uv run --locked mypy packages apps tests
 unit:
 	uv run --locked pytest tests/unit
 science:
@@ -23,3 +23,11 @@ migrate:
 	uv run --locked atlas-migrate
 integration:
 	ATLAS_TEST_DATABASE_URL=$${ATLAS_TEST_DATABASE_URL:-postgresql://atlas:atlas-local-only@127.0.0.1:55432/atlas} uv run --locked pytest tests/integration
+
+sim-image:
+	docker build -t atlas-opentrons-sim:10.1.0 workers/opentrons_sim
+sim:
+	uv run --locked pytest tests/golden_protocols
+
+workflow:
+	ATLAS_TEST_DATABASE_URL=$${ATLAS_TEST_DATABASE_URL:-postgresql://atlas:atlas-local-only@127.0.0.1:55432/atlas} uv run --locked pytest tests/workflow

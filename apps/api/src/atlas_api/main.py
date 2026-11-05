@@ -1,0 +1,395 @@
+"""Local HTTP application; all scientific mutations remain in domain services."""
+
+import os
+from collections.abc import Iterator
+from dataclasses import dataclass
+from typing import Annotated, Any, Literal
+from uuid import UUID, uuid4
+
+import psycopg
+import uvicorn
+from atlas_campaigns.database import Connection, connect
+from atlas_campaigns.execution import enqueue_simulation, get_run, reconcile
+from atlas_campaigns.models import CreateCampaign
+from atlas_campaigns.service import (
+    Conflict,
+    NotFound,
+    create_campaign,
+    get_campaign,
+    list_campaigns,
+)
+from atlas_campaigns.workflow import (
+    DecisionCommand,
+    Forbidden,
+    ProposeCommand,
+    decide_batch,
+    get_batch,
+    propose_batch,
+)
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import RequestResponseEndpoint
+from starlette.responses import Response
+
+
+@dataclass(frozen=True)
+class Principal:
+    actor: str
+    role: Literal["scientist", "reviewer", "viewer"]
+
+
+LOCAL_IDENTITIES = {
+    "local-scientist": Principal("local-scientist", "scientist"),
+    "local-reviewer": Principal("local-reviewer", "reviewer"),
+    "local-viewer": Principal("local-viewer", "viewer"),
+}
+
+
+def principal(authorization: Annotated[str | None, Header()] = None) -> Principal:
+    if os.environ.get("ATLAS_LOCAL_DEMO_AUTH") != "true":
+        raise HTTPException(
+            503, "Local authentication is disabled; no production identity provider configured"
+        )
+    identity = LOCAL_IDENTITIES.get((authorization or "").removeprefix("Bearer "))
+    if not authorization or not authorization.startswith("Bearer ") or identity is None:
+        raise HTTPException(
+            401, "Valid bearer credentials are required", headers={"WWW-Authenticate": "Bearer"}
+        )
+    return identity
+
+
+def database() -> Iterator[Connection]:
+    with connect() as connection:
+        yield connection
+
+
+Database = Annotated[Connection, Depends(database)]
+Identity = Annotated[Principal, Depends(principal)]
+IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
+
+
+def envelope(
+    request: Request, data: Any = None, errors: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    return {
+        "data": jsonable_encoder(data),
+        "meta": {
+            "request_id": request.state.request_id,
+            "trace_id": request.state.trace_id,
+            "schema_version": "1.0",
+        },
+        "errors": errors or [],
+    }
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="ATLAS Lab", version="0.1.0")
+
+    @app.middleware("http")
+    async def request_context(request: Request, call_next: RequestResponseEndpoint) -> Response:
+        request.state.request_id = str(uuid4())
+        request.state.trace_id = uuid4().hex
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request.state.request_id
+        return response
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid(request: Request, error: RequestValidationError) -> JSONResponse:
+        issues = [
+            {"code": item["type"], "message": item["msg"], "location": list(item["loc"])}
+            for item in error.errors()
+        ]
+        return JSONResponse(envelope(request, errors=issues), status_code=422)
+
+    @app.exception_handler(HTTPException)
+    async def http_error(request: Request, error: HTTPException) -> JSONResponse:
+        return JSONResponse(
+            envelope(request, errors=[{"code": str(error.status_code), "message": error.detail}]),
+            status_code=error.status_code,
+            headers=error.headers,
+        )
+
+    @app.exception_handler(Forbidden)
+    async def forbidden(request: Request, error: Forbidden) -> JSONResponse:
+        return JSONResponse(
+            envelope(request, errors=[{"code": "forbidden", "message": str(error)}]),
+            status_code=403,
+        )
+
+    @app.exception_handler(Conflict)
+    async def conflict(request: Request, error: Conflict) -> JSONResponse:
+        return JSONResponse(
+            envelope(request, errors=[{"code": "conflict", "message": str(error)}]), status_code=409
+        )
+
+    @app.exception_handler(NotFound)
+    async def not_found(request: Request, error: NotFound) -> JSONResponse:
+        return JSONResponse(
+            envelope(request, errors=[{"code": "not_found", "message": str(error)}]),
+            status_code=404,
+        )
+
+    @app.exception_handler(psycopg.OperationalError)
+    async def unavailable(request: Request, error: psycopg.OperationalError) -> JSONResponse:
+        return JSONResponse(
+            envelope(
+                request,
+                errors=[{"code": "database_unavailable", "message": "Database unavailable"}],
+            ),
+            status_code=503,
+        )
+
+    @app.get("/health/live")
+    def live(request: Request) -> dict[str, Any]:
+        return envelope(request, {"status": "ok"})
+
+    @app.get("/health/ready")
+    def ready(request: Request, connection: Database) -> dict[str, Any]:
+        connection.execute("SELECT 1 FROM schema_migrations LIMIT 1")
+        return envelope(request, {"status": "ready"})
+
+    @app.get("/v1/system/capabilities")
+    def capabilities(request: Request) -> dict[str, Any]:
+        return envelope(
+            request,
+            {
+                "execution_mode": "simulation",
+                "physical_dispatch": False,
+                "campaign_persistence": True,
+                "protocol_simulator": "opentrons_10.1.0_worker",
+                "oracle_replay": "not_implemented",
+                "nvidia_providers": "not_configured",
+                "auth_profile": "local_demo"
+                if os.environ.get("ATLAS_LOCAL_DEMO_AUTH") == "true"
+                else "disabled",
+            },
+        )
+
+    @app.post("/v1/campaigns", status_code=201)
+    def create(
+        request: Request,
+        command: CreateCampaign,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        if identity.role != "scientist":
+            raise HTTPException(403, "Scientist role required")
+        result = create_campaign(
+            connection,
+            command,
+            identity.actor,
+            idempotency_key,
+            UUID(request.state.request_id),
+            request.state.trace_id,
+        )
+        return envelope(request, result)
+
+    @app.get("/v1/campaigns")
+    def listing(
+        request: Request,
+        identity: Identity,
+        connection: Database,
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> dict[str, Any]:
+        return envelope(request, list_campaigns(connection, identity.actor, limit, offset))
+
+    @app.get("/v1/campaigns/{campaign_id}")
+    def retrieve(
+        request: Request, campaign_id: UUID, identity: Identity, connection: Database
+    ) -> dict[str, Any]:
+        return envelope(request, get_campaign(connection, campaign_id, identity.actor))
+
+    @app.get("/v1/datasets")
+    def datasets(request: Request, identity: Identity, connection: Database) -> dict[str, Any]:
+        return envelope(
+            request,
+            list(
+                connection.execute(
+                    "SELECT snapshot_id,group_id,eligible_count FROM dataset_groups "
+                    "ORDER BY snapshot_id,group_id"
+                )
+            ),
+        )
+
+    @app.post("/v1/campaigns/{campaign_id}/plan", status_code=201)
+    def plan(
+        request: Request,
+        campaign_id: UUID,
+        command: ProposeCommand,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        if identity.role != "scientist":
+            raise HTTPException(403, "Scientist role required")
+        return envelope(
+            request,
+            propose_batch(
+                connection,
+                campaign_id,
+                command,
+                identity.actor,
+                idempotency_key,
+                UUID(request.state.request_id),
+                request.state.trace_id,
+            ),
+        )
+
+    @app.get("/v1/campaigns/{campaign_id}/batches/{batch_id}")
+    def batch(
+        request: Request,
+        campaign_id: UUID,
+        batch_id: UUID,
+        identity: Identity,
+        connection: Database,
+    ) -> dict[str, Any]:
+        return envelope(
+            request, get_batch(connection, campaign_id, batch_id, identity.actor, identity.role)
+        )
+
+    @app.post("/v1/campaigns/{campaign_id}/batches/{batch_id}/approve")
+    def approve(
+        request: Request,
+        campaign_id: UUID,
+        batch_id: UUID,
+        command: DecisionCommand,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        return envelope(
+            request,
+            decide_batch(
+                connection,
+                campaign_id,
+                batch_id,
+                command,
+                "APPROVE",
+                identity.actor,
+                identity.role,
+                idempotency_key,
+                UUID(request.state.request_id),
+                request.state.trace_id,
+            ),
+        )
+
+    @app.post("/v1/campaigns/{campaign_id}/batches/{batch_id}/reject")
+    def reject(
+        request: Request,
+        campaign_id: UUID,
+        batch_id: UUID,
+        command: DecisionCommand,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        return envelope(
+            request,
+            decide_batch(
+                connection,
+                campaign_id,
+                batch_id,
+                command,
+                "REJECT",
+                identity.actor,
+                identity.role,
+                idempotency_key,
+                UUID(request.state.request_id),
+                request.state.trace_id,
+            ),
+        )
+
+    @app.get("/v1/approvals/pending")
+    def pending(request: Request, identity: Identity, connection: Database) -> dict[str, Any]:
+        if identity.role != "reviewer":
+            raise HTTPException(403, "Reviewer role required")
+        return envelope(
+            request,
+            list(
+                connection.execute(
+                    "SELECT * FROM experiment_batches WHERE status='AWAITING_APPROVAL' "
+                    "ORDER BY created_at,id LIMIT 100"
+                )
+            ),
+        )
+
+    @app.post("/v1/runs/{run_id}/simulate", status_code=202)
+    def simulate(
+        request: Request,
+        run_id: UUID,
+        command: ProposeCommand,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        if identity.role != "scientist":
+            raise HTTPException(403, "Scientist role required")
+        return envelope(
+            request,
+            enqueue_simulation(
+                connection,
+                run_id,
+                command.expected_version,
+                identity.actor,
+                idempotency_key,
+                UUID(request.state.request_id),
+                request.state.trace_id,
+            ),
+        )
+
+    @app.get("/v1/runs/{run_id}")
+    def run(
+        request: Request, run_id: UUID, identity: Identity, connection: Database
+    ) -> dict[str, Any]:
+        return envelope(request, get_run(connection, run_id, identity.actor, identity.role))
+
+    @app.get("/v1/runs/{run_id}/events")
+    def events(
+        request: Request, run_id: UUID, identity: Identity, connection: Database
+    ) -> dict[str, Any]:
+        get_run(connection, run_id, identity.actor, identity.role)
+        return envelope(
+            request,
+            list(
+                connection.execute(
+                    "SELECT * FROM run_events WHERE run_id=%s ORDER BY sequence", (run_id,)
+                )
+            ),
+        )
+
+    @app.post("/v1/runs/{run_id}/reconcile")
+    def reconcile_run(
+        request: Request,
+        run_id: UUID,
+        command: ProposeCommand,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        if identity.role != "reviewer":
+            raise HTTPException(403, "Reviewer role required")
+        return envelope(
+            request,
+            reconcile(
+                connection,
+                run_id,
+                command.expected_version,
+                identity.actor,
+                idempotency_key,
+                UUID(request.state.request_id),
+                request.state.trace_id,
+            ),
+        )
+
+    return app
+
+
+app = create_app()
+
+
+def serve() -> None:
+    uvicorn.run("atlas_api.main:app", host="127.0.0.1", port=8000)
