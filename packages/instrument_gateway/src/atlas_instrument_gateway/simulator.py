@@ -22,6 +22,9 @@ def simulate_plan(plan: RunPlan, output: Path, timeout: float = 120) -> dict[str
     output.mkdir(parents=True)
     (output / "protocol.py").write_text(artifact.source)
     (output / "run_spec.json").write_text(plan.model_dump_json(indent=2) + "\n")
+    receipt_directory = output / "receipt"
+    receipt_directory.mkdir()
+    receipt_directory.chmod(0o777)  # Writable only output mount for the non-root container UID.
     command = [
         "docker",
         "run",
@@ -39,6 +42,8 @@ def simulate_plan(plan: RunPlan, output: Path, timeout: float = 120) -> dict[str
         "/tmp:rw,nosuid,size=128m",
         "--mount",
         f"type=bind,source={output.resolve()},target=/input,readonly",
+        "--mount",
+        f"type=bind,source={receipt_directory.resolve()},target=/output",
         image_id,
     ]
     manifest: dict[str, Any] = {
@@ -60,7 +65,8 @@ def simulate_plan(plan: RunPlan, output: Path, timeout: float = 120) -> dict[str
         else:
             receipt = json.loads(result.stdout.strip().splitlines()[-1])
             if (
-                receipt["protocol_hash"] != artifact.protocol_hash
+                receipt.get("run_id") != str(plan.run_id)
+                or receipt["protocol_hash"] != artifact.protocol_hash
                 or receipt["simulator_version"] != "10.1.0"
                 or receipt["status"] != "SIMULATED"
             ):

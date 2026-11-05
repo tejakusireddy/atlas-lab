@@ -28,3 +28,6 @@ sim-image:
 	docker build -t atlas-opentrons-sim:10.1.0 workers/opentrons_sim
 sim:
 	uv run --locked pytest tests/golden_protocols
+
+workflow:
+	ATLAS_TEST_DATABASE_URL=$${ATLAS_TEST_DATABASE_URL:-postgresql://atlas:atlas-local-only@127.0.0.1:55432/atlas} uv run --locked pytest tests/workflow

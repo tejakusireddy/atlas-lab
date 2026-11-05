@@ -7,6 +7,7 @@ dependencies = ["atlas-domain", "atlas-instrument-gateway", "atlas-optimization"
 
 [project.scripts]
 atlas-migrate = "atlas_campaigns.database:main"
+atlas-worker = "atlas_campaigns.execution:main"
 
 [tool.uv.sources]
 atlas-domain = { workspace = true }

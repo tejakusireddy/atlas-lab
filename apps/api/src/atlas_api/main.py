@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 import psycopg
 import uvicorn
 from atlas_campaigns.database import Connection, connect
+from atlas_campaigns.execution import enqueue_simulation, get_run, reconcile
 from atlas_campaigns.models import CreateCampaign
 from atlas_campaigns.service import (
     Conflict,
@@ -157,7 +158,7 @@ def create_app() -> FastAPI:
                 "execution_mode": "simulation",
                 "physical_dispatch": False,
                 "campaign_persistence": True,
-                "protocol_simulator": "standalone_available",
+                "protocol_simulator": "opentrons_10.1.0_worker",
                 "oracle_replay": "not_implemented",
                 "nvidia_providers": "not_configured",
                 "auth_profile": "local_demo"
@@ -313,6 +314,74 @@ def create_app() -> FastAPI:
                     "SELECT * FROM experiment_batches WHERE status='AWAITING_APPROVAL' "
                     "ORDER BY created_at,id LIMIT 100"
                 )
+            ),
+        )
+
+    @app.post("/v1/runs/{run_id}/simulate", status_code=202)
+    def simulate(
+        request: Request,
+        run_id: UUID,
+        command: ProposeCommand,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        if identity.role != "scientist":
+            raise HTTPException(403, "Scientist role required")
+        return envelope(
+            request,
+            enqueue_simulation(
+                connection,
+                run_id,
+                command.expected_version,
+                identity.actor,
+                idempotency_key,
+                UUID(request.state.request_id),
+                request.state.trace_id,
+            ),
+        )
+
+    @app.get("/v1/runs/{run_id}")
+    def run(
+        request: Request, run_id: UUID, identity: Identity, connection: Database
+    ) -> dict[str, Any]:
+        return envelope(request, get_run(connection, run_id, identity.actor, identity.role))
+
+    @app.get("/v1/runs/{run_id}/events")
+    def events(
+        request: Request, run_id: UUID, identity: Identity, connection: Database
+    ) -> dict[str, Any]:
+        get_run(connection, run_id, identity.actor, identity.role)
+        return envelope(
+            request,
+            list(
+                connection.execute(
+                    "SELECT * FROM run_events WHERE run_id=%s ORDER BY sequence", (run_id,)
+                )
+            ),
+        )
+
+    @app.post("/v1/runs/{run_id}/reconcile")
+    def reconcile_run(
+        request: Request,
+        run_id: UUID,
+        command: ProposeCommand,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        if identity.role != "reviewer":
+            raise HTTPException(403, "Reviewer role required")
+        return envelope(
+            request,
+            reconcile(
+                connection,
+                run_id,
+                command.expected_version,
+                identity.actor,
+                idempotency_key,
+                UUID(request.state.request_id),
+                request.state.trace_id,
             ),
         )
 

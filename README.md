@@ -8,7 +8,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 ## Project status
 
-**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning and independent review are available; execution integration remains in development.
+**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning, independent review, and durable dispatch to the real Opentrons simulator are available. Historical outcome release remains in development.
 
 | Deliverable | Status |
 | --- | --- |
@@ -20,8 +20,8 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | PostgreSQL campaign persistence | Available with idempotency, audit, and outbox transactions |
 | Campaign HTTP API | Dataset registration, drafts, immutable plans, and independent approvals |
 | Simulation work orders | Validated contract, deterministic compiler, and tested Opentrons worker |
-| Approved simulation and historical replay loop | Planned — G1 |
-| Durable execution, reconciliation, and telemetry | Planned — G2 |
+| Approved simulation and historical replay loop | Approved simulation verified; historical replay pending |
+| Durable execution, reconciliation, and telemetry | Single-attempt dispatch and receipt reconciliation available; tracing export pending |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
 | Research evaluation and demonstration artifacts | Planned — G4 |
 
@@ -78,7 +78,7 @@ Runs paired policies on historical candidates, with eight shared initial selecti
 
 ## Simulation work orders
 
-The first Flex profile compiles validated water-placeholder transfers from immutable typed work orders. The [generated schema](contracts/experiment_runspec.schema.json) and [approval hash decision](docs/adr/001-approval-hash-boundary.md) define the supported boundary. The isolated Opentrons 10.1.0 worker passes real one-, eight-, and 96-transfer simulation tests. See the [simulator runbook](docs/runbooks/simulator.md). Application dispatch is not yet connected.
+The first Flex profile compiles validated water-placeholder transfers from immutable typed work orders. The [generated schema](contracts/experiment_runspec.schema.json) and [approval hash decision](docs/adr/001-approval-hash-boundary.md) define the supported boundary. The isolated Opentrons 10.1.0 worker passes real one-, eight-, and 96-transfer simulation tests. See the [simulator runbook](docs/runbooks/simulator.md). Approved runs dispatch through the PostgreSQL outbox. `make workflow` verifies HTTP approval and dispatch through the real simulator.
 
 ## NVIDIA delivery scope
 

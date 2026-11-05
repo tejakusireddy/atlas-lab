@@ -24,7 +24,7 @@ A successful response contains a durable `DRAFT` campaign. `GET /v1/campaigns` s
 
 Responses include `data`, `errors`, and `meta` with request ID, correlation trace ID, and schema version. Trace IDs currently correlate API/audit records; distributed tracing export is not yet implemented. `/health/live`, `/health/ready`, and `/v1/system/capabilities` expose operational status. Capabilities explicitly distinguish unimplemented simulation/oracle features and unconfigured NVIDIA providers.
 
-The API supports draft creation, planning, and independent review. Execution, measurement release, and reports are not yet available.
+The API supports draft creation, planning, independent review, and queued simulation. Measurement release and reports are not yet available.
 
 ## Planning and review
 
@@ -32,4 +32,14 @@ The API supports draft creation, planning, and independent review. Execution, me
 
 A reviewer lists `/v1/approvals/pending` or reads `/v1/campaigns/{id}/batches/{batch_id}`. Approve or reject by posting `{"expected_version": 0, "plan_hash": "sha256:..."}` to the corresponding `/approve` or `/reject` endpoint with a new idempotency key. The reviewer must differ from the proposer. The hash must match the full immutable work order; stale versions and changed hashes conflict. Approvals expire after one hour and must be rechecked before dispatch.
 
-Approval transactionally reserves unique candidate IDs against the campaign budget and creates an approved run with an audit event. `budget_used` currently means reserved unique selections, not observed measurements. Rejection leaves the budget unchanged and allows a new proposal revision. The previous batch must be rejected or analyzed before another proposal is accepted. Simulation dispatch and measurement release are not yet connected to these endpoints.
+Approval transactionally reserves unique candidate IDs against the campaign budget and creates an approved run with an audit event. `budget_used` currently means reserved unique selections, not observed measurements. Rejection leaves the budget unchanged and allows a new proposal revision. The previous batch must be rejected or analyzed before another proposal is accepted. Approved runs can be queued for simulation; measurement release remains pending.
+
+## Dispatch and recovery
+
+Post `{"expected_version": 0}` to `/v1/runs/{run_id}/simulate` as the owning scientist with an idempotency key. The 202 response records dispatch intent transactionally. Build the worker with `make sim-image`, then run `uv run --locked atlas-worker` to process one queued run. Each invocation claims at most one dispatch; it does not run a polling daemon.
+
+Read `/v1/runs/{run_id}` and `/v1/runs/{run_id}/events` for status and ordered transitions. Approval validity is checked again immediately before claiming execution. A claimed run has one attempt and a five-minute lease. Run `uv run --locked atlas-worker --recover-expired` to mark expired attempts `EXECUTION_UNKNOWN`; this never dispatches them again.
+
+A reviewer can post the current `expected_version` to `/v1/runs/{run_id}/reconcile` with an idempotency key. Reconciliation accepts only a durable receipt from the registered attempt directory matching the run, protocol hash, and simulator version. Without matching evidence the outcome remains unknown. Keep artifact directories on trusted local storage: receipts are local worker evidence, not cryptographically signed attestations.
+
+Run `make workflow` to verify the full HTTP → PostgreSQL → real simulator flow in an isolated test schema.
