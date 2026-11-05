@@ -8,7 +8,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 ## Project status
 
-**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning, independent review, and durable dispatch to the real Opentrons simulator are available. Historical outcome release remains in development.
+**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning, independent review, and durable dispatch to the real Opentrons simulator are available. Checksum-verified historical outcome release, immutable QC records, and analysis snapshots with receipt and prior-snapshot lineage are available. The seeded-random campaign loop has completed six real simulator batches; model-guided updates remain pending.
 
 | Deliverable | Status |
 | --- | --- |
@@ -20,7 +20,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | PostgreSQL campaign persistence | Available with idempotency, audit, and outbox transactions |
 | Campaign HTTP API | Dataset registration, drafts, immutable plans, and independent approvals |
 | Simulation work orders | Validated contract, deterministic compiler, and tested Opentrons worker |
-| Approved simulation and historical replay loop | Approved simulation verified; historical replay pending |
+| Approved simulation and historical replay loop | Reproducible six-batch HTTP workflow verified twice against real source data and simulator |
 | Durable execution, reconciliation, and telemetry | Single-attempt dispatch and receipt reconciliation available; tracing export pending |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
 | Research evaluation and demonstration artifacts | Planned — G4 |
@@ -80,6 +80,12 @@ Runs paired policies on historical candidates, with eight shared initial selecti
 
 The first Flex profile compiles validated water-placeholder transfers from immutable typed work orders. The [generated schema](contracts/experiment_runspec.schema.json) and [approval hash decision](docs/adr/001-approval-hash-boundary.md) define the supported boundary. The isolated Opentrons 10.1.0 worker passes real one-, eight-, and 96-transfer simulation tests. See the [simulator runbook](docs/runbooks/simulator.md). Approved runs dispatch through the PostgreSQL outbox. `make workflow` verifies HTTP approval and dispatch through the real simulator.
 
+## Deterministic reference milestone
+
+After importing the pinned Doyle snapshot and building the simulator image, run `make reference-workflow`. The test creates two isolated campaigns through the HTTP API, each with six independent-role approval gates, six real Docker simulations, and 48 unique source-backed observations. It compares candidate/outcome trajectories for the same seed, verifies receipt and snapshot hashes, rejects stale snapshot references and exhausted budgets, and guards oracle-file access outside the release worker. Integration tests also exercise concurrent completion/proposal requests and failure before commit.
+
+The reference selector is versioned seeded random; model-guided acquisition remains pending. LangGraph and NVIDIA integration work is deferred until this deterministic reference is established and retained as a regression gate. CI includes the reference test; hosted results remain pending a push.
+
 ## NVIDIA delivery scope
 
 NVIDIA integrations are planned deliverables with explicit evaluation requirements:
@@ -117,3 +123,5 @@ The public reference profile simulates representative nonhazardous liquid handli
 ## License
 
 Repository code is licensed under [Apache-2.0](LICENSE). External datasets, model weights, and vendor assets retain their respective licenses; their access and redistribution terms must be verified before import or distribution.
+
+Historical outcomes are released by a separate worker after successful simulation. See the [historical results runbook](docs/runbooks/historical-results.md) for QC, provenance, and local isolation limits.

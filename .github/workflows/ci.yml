@@ -25,3 +25,5 @@ jobs:
       - run: make sim-image
       - run: make sim
       - run: make workflow
+      - run: uv run --locked atlas-import --download
+      - run: make reference-workflow

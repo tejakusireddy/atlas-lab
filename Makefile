@@ -31,3 +31,6 @@ sim:
 
 workflow:
 	ATLAS_TEST_DATABASE_URL=$${ATLAS_TEST_DATABASE_URL:-postgresql://atlas:atlas-local-only@127.0.0.1:55432/atlas} uv run --locked pytest tests/workflow
+
+reference-workflow:
+	ATLAS_TEST_DATABASE_URL=$${ATLAS_TEST_DATABASE_URL:-postgresql://atlas:atlas-local-only@127.0.0.1:55432/atlas} uv run --locked pytest tests/reference_workflow

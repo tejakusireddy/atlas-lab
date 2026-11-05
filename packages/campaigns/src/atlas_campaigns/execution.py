@@ -18,6 +18,9 @@ from atlas_campaigns.service import Conflict, NotFound
 from atlas_campaigns.workflow import prior_mutation, record_mutation
 
 TRANSITIONS = {
+    "QC_COMPLETE": {"ANALYZED"},
+    "SIMULATED": {"MEASUREMENT_PENDING"},
+    "MEASUREMENT_PENDING": {"QC_COMPLETE"},
     "APPROVED": {"VALIDATING"},
     "VALIDATING": {"VALIDATED", "FAILED_PRE_DISPATCH"},
     "VALIDATED": {"DISPATCH_PENDING"},
@@ -180,6 +183,20 @@ def claim_next(connection: Connection, root: Path) -> dict[str, Any] | None:
         return {**claimed, "run_spec": spec.model_dump(mode="json")}
 
 
+def record_receipt(connection: Connection, run: dict[str, Any], receipt: dict[str, Any]) -> None:
+    if (
+        receipt.get("run_id") != str(run["id"])
+        or receipt.get("protocol_hash") != run["protocol_hash"]
+        or receipt.get("simulator_version") != "10.1.0"
+        or receipt.get("status") not in ("SIMULATED", "EXECUTION_FAILED")
+    ):
+        raise Conflict("Receipt does not match execution")
+    connection.execute(
+        "INSERT INTO execution_receipts(run_id,receipt_hash,receipt) VALUES (%s,%s,%s)",
+        (run["id"], content_hash(receipt), Jsonb(receipt)),
+    )
+
+
 def execute_next(connection: Connection, root: Path) -> dict[str, Any] | None:
     claimed = claim_next(connection, root)
     if claimed is None:
@@ -199,6 +216,8 @@ def execute_next(connection: Connection, root: Path) -> dict[str, Any] | None:
         assert run is not None
         if run["status"] != "SIMULATING" or run["attempt_id"] != claimed["attempt_id"]:
             raise Conflict("Execution ownership changed; explicit reconciliation required")
+        if status == "SIMULATED":
+            record_receipt(connection, run, result["receipt"])
         return transition(connection, run, status, run["trace_id"])
 
 
@@ -250,6 +269,7 @@ def reconcile(
             or receipt.get("status") not in ("SIMULATED", "EXECUTION_FAILED")
         ):
             raise Conflict("Durable receipt does not match this execution")
+        record_receipt(connection, run, receipt)
         transition(connection, run, receipt["status"], trace_id, "run.reconciled")
         record_mutation(
             connection, actor, "run.reconcile", key, request_hash, run_id, request_id, trace_id

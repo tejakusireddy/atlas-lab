@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 
 import psycopg
 import uvicorn
+from atlas_campaigns.analysis import analyze
 from atlas_campaigns.database import Connection, connect
 from atlas_campaigns.execution import enqueue_simulation, get_run, reconcile
 from atlas_campaigns.models import CreateCampaign
@@ -22,6 +23,7 @@ from atlas_campaigns.workflow import (
     DecisionCommand,
     Forbidden,
     ProposeCommand,
+    VersionCommand,
     decide_batch,
     get_batch,
     propose_batch,
@@ -159,7 +161,7 @@ def create_app() -> FastAPI:
                 "physical_dispatch": False,
                 "campaign_persistence": True,
                 "protocol_simulator": "opentrons_10.1.0_worker",
-                "oracle_replay": "not_implemented",
+                "oracle_replay": "separate_checksum_verified_worker",
                 "nvidia_providers": "not_configured",
                 "auth_profile": "local_demo"
                 if os.environ.get("ATLAS_LOCAL_DEMO_AUTH") == "true"
@@ -202,6 +204,61 @@ def create_app() -> FastAPI:
         request: Request, campaign_id: UUID, identity: Identity, connection: Database
     ) -> dict[str, Any]:
         return envelope(request, get_campaign(connection, campaign_id, identity.actor))
+
+    @app.get("/v1/campaigns/{campaign_id}/measurements")
+    def measurements(
+        request: Request, campaign_id: UUID, identity: Identity, connection: Database
+    ) -> dict[str, Any]:
+        get_campaign(connection, campaign_id, identity.actor)
+        return envelope(
+            request,
+            list(
+                connection.execute(
+                    "SELECT * FROM measurements WHERE campaign_id=%s "
+                    "ORDER BY revealed_at,candidate_id",
+                    (campaign_id,),
+                )
+            ),
+        )
+
+    @app.post("/v1/runs/{run_id}/analyze")
+    def analyze_run(
+        request: Request,
+        run_id: UUID,
+        command: VersionCommand,
+        identity: Identity,
+        connection: Database,
+        idempotency_key: IdempotencyKey,
+    ) -> dict[str, Any]:
+        if identity.role != "scientist":
+            raise HTTPException(403, "Scientist role required")
+        return envelope(
+            request,
+            analyze(
+                connection,
+                run_id,
+                command.expected_version,
+                identity.actor,
+                idempotency_key,
+                request.state.request_id,
+                request.state.trace_id,
+            ),
+        )
+
+    @app.get("/v1/campaigns/{campaign_id}/analyses")
+    def analyses(
+        request: Request, campaign_id: UUID, identity: Identity, connection: Database
+    ) -> dict[str, Any]:
+        get_campaign(connection, campaign_id, identity.actor)
+        return envelope(
+            request,
+            list(
+                connection.execute(
+                    "SELECT * FROM campaign_analyses WHERE campaign_id=%s ORDER BY created_at,id",
+                    (campaign_id,),
+                )
+            ),
+        )
 
     @app.get("/v1/datasets")
     def datasets(request: Request, identity: Identity, connection: Database) -> dict[str, Any]:
@@ -321,7 +378,7 @@ def create_app() -> FastAPI:
     def simulate(
         request: Request,
         run_id: UUID,
-        command: ProposeCommand,
+        command: VersionCommand,
         identity: Identity,
         connection: Database,
         idempotency_key: IdempotencyKey,
@@ -365,7 +422,7 @@ def create_app() -> FastAPI:
     def reconcile_run(
         request: Request,
         run_id: UUID,
-        command: ProposeCommand,
+        command: VersionCommand,
         identity: Identity,
         connection: Database,
         idempotency_key: IdempotencyKey,
