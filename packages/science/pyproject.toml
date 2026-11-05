@@ -3,10 +3,11 @@ name = "atlas-science"
 version = "0.1.0"
 requires-python = ">=3.11,<3.12"
 license = "Apache-2.0"
-dependencies = ["atlas-domain", "pydantic>=2.11,<3", "rdkit>=2025.3"]
+dependencies = ["atlas-domain", "pydantic>=2.11,<3", "rdkit>=2025.3", "scikit-learn>=1.6", "catboost>=1.2", "mlflow>=3", "numpy>=2", "joblib>=1.4", "scipy>=1.15", "matplotlib>=3.10", "pyarrow>=19"]
 
 [project.scripts]
 atlas-import = "atlas_science.importer:main"
+atlas-baseline = "atlas_science.baseline:main"
 
 [tool.uv.sources]
 atlas-domain = { workspace = true }

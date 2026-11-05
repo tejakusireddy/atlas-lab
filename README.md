@@ -8,14 +8,14 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 ## Project status
 
-**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. There is no runnable campaign application, validated migration, or measured benchmark yet.
+**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. There is no runnable campaign application, validated migration, or completed comparative benchmark yet.
 
 | Deliverable | Status |
 | --- | --- |
 | Python tooling and CI configuration | Available; hosted CI pending first push |
 | Doyle dataset import and provenance | Available; 4,312 candidates across 15 eligible groups |
 | Group splits and finite-pool selection | Available with leakage, uniqueness, and budget checks |
-| CPU predictive baselines | Next — G0 |
+| CPU predictive baselines | Random Forest and CatBoost evaluation available |
 | Approved simulation and historical replay loop | Planned — G1 |
 | Durable execution, reconciliation, and telemetry | Planned — G2 |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
@@ -34,6 +34,14 @@ uv run --locked atlas-import --download
 ```
 
 This explicitly downloads pinned public source files into ignored local storage and creates a new normalized snapshot. See [import provenance and limitations](docs/reproducibility/doyle-import.md). Outcome records are stored separately from candidate inputs.
+
+## CPU baselines
+
+```sh
+uv run --locked atlas-baseline --output artifacts/baseline-42 --seed 42
+```
+
+Produces held-out predictions, metrics, models, provenance manifests, and MLflow runs. See [evaluation procedure and limitations](docs/reproducibility/cpu-baselines.md).
 
 ## NVIDIA delivery scope
 
