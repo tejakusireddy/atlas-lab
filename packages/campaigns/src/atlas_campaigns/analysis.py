@@ -5,6 +5,8 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from atlas_domain.hashing import content_hash
+from atlas_science.decisions import decide
+from atlas_science.records import Candidate
 from psycopg.types.json import Jsonb
 
 from atlas_campaigns.database import Connection
@@ -91,8 +93,47 @@ def analyze(
             return {state: counter[state] for state in ("PASSED", "QUARANTINED", "UNOBSERVED")}
 
         best = max(observations, key=lambda m: m["observed_yield_pct"], default=None)
+        next_decision = None
+        if campaign["acquisition_strategy"] != "random":
+            candidates = [
+                Candidate.model_validate(row["input_record"])
+                for row in connection.execute(
+                    "SELECT input_record FROM dataset_candidates "
+                    "WHERE snapshot_id=%s AND group_id=%s "
+                    "ORDER BY candidate_id",
+                    (campaign["snapshot_id"], campaign["group_id"]),
+                )
+            ]
+            selected = [
+                row["candidate_id"]
+                for row in connection.execute(
+                    "SELECT candidate_id FROM campaign_selections "
+                    "WHERE campaign_id=%s ORDER BY candidate_id",
+                    (campaign["id"],),
+                )
+            ]
+            next_decision, artifact = decide(
+                candidates,
+                selected,
+                {m["candidate_id"]: m["observed_yield_pct"] for m in observations},
+                campaign["acquisition_strategy"],
+                campaign["predictor"],
+                campaign["seed"] + len(selected),
+                min(campaign["batch_size"], campaign["budget_max"] - len(selected)),
+                campaign["budget_max"],
+            )
+            next_decision["training_measurements"] = observations
+            next_decision["external_training"] = None
+            if artifact is not None:
+                connection.execute(
+                    "INSERT INTO model_artifacts(model_hash,artifact,format) "
+                    "VALUES (%s,%s,'python-pickle-v5') ON CONFLICT DO NOTHING",
+                    (next_decision["model_hash"], artifact),
+                )
         snapshot = {
-            "schema_version": "1.1",
+            "schema_version": "1.2",
+            "next_decision": next_decision,
+            "next_decision_hash": content_hash(next_decision) if next_decision else None,
             "batch_id": str(batch["id"]),
             "batch_number": batch["ordinal"],
             "selected_candidate_ids": visible["run_spec"]["candidate_ids"],
@@ -115,7 +156,9 @@ def analyze(
                 batch_observations, key=lambda m: m["observed_yield_pct"], default=None
             ),
             "cumulative_best_observed": best,
-            "acquisition_version": "random-without-replacement-v1",
+            "acquisition_version": next_decision["version"]
+            if next_decision
+            else "random-without-replacement-v1",
             "campaign_id": str(campaign["id"]),
             "run_id": str(run_id),
             "dataset_snapshot_id": campaign["snapshot_id"],
@@ -124,8 +167,8 @@ def analyze(
             "qc_counts": counts(measurements),
             "observations": observations,
             "best_observed": best,
-            "selection_policy": "seeded_random",
-            "model_revision": None,
+            "selection_policy": campaign["acquisition_strategy"],
+            "model_revision": next_decision["model_hash"] if next_decision else None,
         }
         result = connection.execute(
             """INSERT INTO campaign_analyses(id,campaign_id,run_id,snapshot_hash,snapshot)

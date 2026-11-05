@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 from atlas_domain.hashing import content_hash
 from atlas_instrument_gateway.spec import RunPlan, Transfer
-from atlas_optimization.selection import random_batch
+from atlas_optimization.selection import eligible_ids, random_batch
 from psycopg.types.json import Jsonb
 from pydantic import Field
 
@@ -173,6 +173,30 @@ def propose_batch(
             "excluded_candidate_ids": sorted(selected),
             "previous_snapshot_hash": previous_hash,
         }
+        if selected and campaign["acquisition_strategy"] != "random":
+            if previous is None or not previous["snapshot"].get("next_decision"):
+                raise Conflict("Committed acquisition decision required")
+            decision = previous["snapshot"]["next_decision"]
+            if content_hash(decision) != previous["snapshot"]["next_decision_hash"]:
+                raise Conflict("Acquisition decision integrity failure")
+            candidate_ids = decision["selected_ids"]
+            eligible = eligible_ids(pool, selected, campaign["budget_max"], count)
+            if (
+                len(candidate_ids) != count
+                or len(set(candidate_ids)) != count
+                or not set(candidate_ids).issubset(eligible)
+            ):
+                raise Conflict("Committed acquisition violates eligibility")
+            selection_context = {
+                **decision,
+                "previous_snapshot_hash": previous_hash,
+                "decision_hash": previous["snapshot"]["next_decision_hash"],
+            }
+        else:
+            selection_context["configured_strategy"] = campaign["acquisition_strategy"]
+            selection_context["reason"] = (
+                "shared_initial_design" if not selected else "random_reference"
+            )
         batch_id, run_id = uuid4(), uuid4()
         ordinal = latest["ordinal"] + 1 if latest else 1
         spec = RunPlan(

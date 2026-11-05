@@ -55,8 +55,8 @@ def create_campaign(
         campaign_id = uuid4()
         row = connection.execute(
             """INSERT INTO campaigns
-            (id,owner_id,snapshot_id,group_id,budget_max,batch_size,seed)
-            VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+            (id,owner_id,snapshot_id,group_id,budget_max,batch_size,seed,acquisition_strategy,predictor)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
             (
                 campaign_id,
                 actor,
@@ -65,6 +65,8 @@ def create_campaign(
                 command.budget.max_unique_experiments,
                 command.budget.batch_size,
                 command.seed,
+                command.acquisition_strategy,
+                command.predictor,
             ),
         ).fetchone()
         assert row is not None

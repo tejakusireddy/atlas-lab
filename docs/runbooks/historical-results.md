@@ -20,7 +20,7 @@ Snapshot schema 1.1 includes campaign/run/batch identity and ordinal, ordered se
 
 A receipt is stored immutably in PostgreSQL when execution completes or is reconciled; normal completion also requires agreement between durable receipt and vendor stdout. Analysis refuses to proceed without verified receipt evidence. Same-key and different-key analysis retries return the one committed snapshot. Snapshot insertion, run advancement, campaign progress, audit, and outbox publication intent commit together. Concurrent proposal requests serialize on the campaign and cannot create two successors at the same version.
 
-The current live selection policy remains seeded random and snapshots explicitly have no model revision. Model-guided selection is pending.
+Snapshot schema 1.2 adds a hash-bound `next_decision` with training measurement lineage and model revision. For model-backed strategies, analysis fits the configured predictor using only the current campaign's released, QC-passed historical observations and stores model bytes immutably in PostgreSQL. The next proposal consumes the committed selected IDs and scores; it does not retrain or rescore. Random and diversity do not require a predictor. External training is disabled in this profile. Model fitting currently runs synchronously within the analysis transaction for these small reference datasets.
 
 ## Six-batch local verification
 

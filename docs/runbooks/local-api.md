@@ -43,3 +43,9 @@ Read `/v1/runs/{run_id}` and `/v1/runs/{run_id}/events` for status and ordered t
 A reviewer can post the current `expected_version` to `/v1/runs/{run_id}/reconcile` with an idempotency key. Reconciliation accepts only a durable receipt from the registered attempt directory matching the run, protocol hash, and simulator version. Without matching evidence the outcome remains unknown. Keep artifact directories on trusted local storage: receipts are local worker evidence, not cryptographically signed attestations.
 
 Run `make workflow` to verify the full HTTP → PostgreSQL → real simulator flow in an isolated test schema.
+
+## Acquisition configuration
+
+Campaign creation accepts `acquisition_strategy` (`random`, `greedy`, `diversity`, or `ensemble_ucb`) and `predictor` (`random_forest` or `catboost`). Defaults remain random and Random Forest. The configuration, seed, source group, and budget are immutable. All strategies use the same initial seeded-random batch; subsequent adaptive proposals consume the prior committed snapshot's scored decision.
+
+Analysis responses expose `next_decision`, its hash, model hash, parameters, feature hash/version, eligible training measurement IDs, predictions, ensemble spread, acquisition scores, and ranks. Diversity records per-step distances and rankings. No eligible labels produces an explicit random fallback. See [acquisition semantics](../reproducibility/live-acquisition.md). The serialized model artifacts are retained in PostgreSQL and are not accepted as user uploads or deserialized by the API.

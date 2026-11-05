@@ -1,5 +1,6 @@
 """Reference milestone: real source, HTTP review, vendor simulation, and replay."""
 
+import hashlib
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -20,8 +21,22 @@ from atlas_science.splits import create_split
 from fastapi.testclient import TestClient
 
 
+@pytest.mark.parametrize(
+    ("strategy", "predictor"),
+    [
+        ("random", "random_forest"),
+        ("greedy", "random_forest"),
+        ("diversity", "random_forest"),
+        ("ensemble_ucb", "random_forest"),
+        ("ensemble_ucb", "catboost"),
+    ],
+)
 def test_reproducible_six_batch_reference(
-    database: Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    database: Connection,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    strategy: str,
+    predictor: str,
 ) -> None:
     snapshot = Path(os.environ.get("ATLAS_REFERENCE_SNAPSHOT", "data/snapshots/doyle2018-v1"))
     assert snapshot.exists(), "Import the pinned Doyle snapshot before running this milestone"
@@ -80,7 +95,13 @@ def test_reproducible_six_batch_reference(
 
             campaign = post(
                 "/v1/campaigns",
-                {"dataset_snapshot_id": snapshot_id, "campaign_group_id": group, "seed": 42},
+                {
+                    "dataset_snapshot_id": snapshot_id,
+                    "campaign_group_id": group,
+                    "seed": 42,
+                    "acquisition_strategy": strategy,
+                    "predictor": predictor,
+                },
                 "create",
                 expected=201,
             )
@@ -185,6 +206,25 @@ def test_reproducible_six_batch_reference(
                     f"another-analysis-{batch_number}",
                 )
                 assert duplicate == analysis
+                if strategy != "random":
+                    decision = frozen["next_decision"]
+                    assert content_hash(decision) == frozen["next_decision_hash"]
+                    assert decision["training_candidate_ids"] == sorted(seen)
+                    assert {m["candidate_id"] for m in decision["training_measurements"]} == seen
+                    assert decision["external_training"] is None
+                    if strategy != "diversity":
+                        saved = database.execute(
+                            "SELECT artifact FROM model_artifacts WHERE model_hash=%s",
+                            (decision["model_hash"],),
+                        ).fetchone()
+                        assert saved is not None
+                        assert (
+                            "sha256:" + hashlib.sha256(saved["artifact"]).hexdigest()
+                            == decision["model_hash"]
+                        )
+                if batch_number > 1 and strategy != "random":
+                    assert batch["selection_context"]["selected_ids"] == selected
+                    assert batch["selection_context"]["previous_snapshot_hash"] == previous_hash
                 previous_hash = analysis["snapshot_hash"]
                 trajectory.append(
                     {

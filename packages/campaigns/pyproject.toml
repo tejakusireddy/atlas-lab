@@ -3,13 +3,14 @@ name = "atlas-campaigns"
 version = "0.1.0"
 requires-python = ">=3.11,<3.12"
 license = "Apache-2.0"
-dependencies = ["atlas-domain", "atlas-instrument-gateway", "atlas-optimization", "pydantic>=2.11,<3", "psycopg[binary]>=3.2"]
+dependencies = ["atlas-science", "atlas-domain", "atlas-instrument-gateway", "atlas-optimization", "pydantic>=2.11,<3", "psycopg[binary]>=3.2"]
 
 [project.scripts]
 atlas-migrate = "atlas_campaigns.database:main"
 atlas-worker = "atlas_campaigns.execution:main"
 
 [tool.uv.sources]
+atlas-science = { workspace = true }
 atlas-domain = { workspace = true }
 atlas-instrument-gateway = { workspace = true }
 atlas-optimization = { workspace = true }
