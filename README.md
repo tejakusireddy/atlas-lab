@@ -8,12 +8,13 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 ## Project status
 
-**Foundations in development.** The Python workspace provides deterministic artifact hashing and local quality checks. There is no runnable campaign application, validated migration, or measured benchmark yet.
+**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. There is no runnable campaign application, validated migration, or measured benchmark yet.
 
 | Deliverable | Status |
 | --- | --- |
 | Python tooling and CI configuration | Available; hosted CI pending first push |
-| Dataset import, split validation, and CPU baselines | Planned — G0 |
+| Doyle dataset import and provenance | Available; 4,312 candidates across 15 eligible groups |
+| Split validation and CPU baselines | Planned — G0 |
 | Approved simulation and historical replay loop | Planned — G1 |
 | Durable execution, reconciliation, and telemetry | Planned — G2 |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
@@ -24,6 +25,14 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 The target system uses a React/TypeScript workbench and a modular FastAPI application. PostgreSQL owns campaign state, approvals, measurement provenance, and transactional outbox events. Isolated workers handle protocol simulation and model training. Content-addressed artifacts retain data, protocol, model, and report lineage.
 
 The local reference profile must run on CPU without cloud credentials or physical laboratory equipment. Historical campaign outcomes remain isolated from planning and training until eligible selections have completed simulation. Missing measurements remain unobserved; only source-backed, QC-passed observations enter scientific model updates.
+
+## Dataset import
+
+```sh
+uv run --locked atlas-import --download
+```
+
+This explicitly downloads pinned public source files into ignored local storage and creates a new normalized snapshot. See [import provenance and limitations](docs/reproducibility/doyle-import.md). Outcome records are stored separately from candidate inputs.
 
 ## NVIDIA delivery scope
 

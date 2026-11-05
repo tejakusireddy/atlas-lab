@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Reproducible reaction optimization and laboratory protocol simulation"
 requires-python = ">=3.11,<3.12"
 license = "Apache-2.0"
-dependencies = ["atlas-domain"]
+dependencies = ["atlas-domain", "atlas-science"]
 
 [tool.uv]
 package = false
@@ -14,6 +14,7 @@ members = ["packages/*", "apps/api"]
 
 [tool.uv.sources]
 atlas-domain = { workspace = true }
+atlas-science = { workspace = true }
 
 [dependency-groups]
 dev = ["ruff>=0.11", "mypy>=1.15", "pytest>=8", "hypothesis>=6", "pre-commit>=4", "pip-audit>=2.9"]
@@ -33,3 +34,7 @@ strict = true
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 markers = ["integration: requires external services", "scientific: scientific integrity checks"]
+
+[[tool.mypy.overrides]]
+module = ["rdkit.*"]
+ignore_missing_imports = true
