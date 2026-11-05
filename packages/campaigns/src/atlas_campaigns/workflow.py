@@ -20,8 +20,12 @@ class Forbidden(PermissionError):
     pass
 
 
-class ProposeCommand(Contract):
+class VersionCommand(Contract):
     expected_version: int = Field(ge=0, strict=True)
+
+
+class ProposeCommand(VersionCommand):
+    previous_snapshot_hash: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
 
 
 class DecisionCommand(Contract):
@@ -127,6 +131,16 @@ def propose_batch(
         ).fetchone()
         if latest and latest["status"] not in ("REJECTED", "ANALYZED"):
             raise Conflict("Previous batch must be rejected or analyzed before replanning")
+        previous = connection.execute(
+            "SELECT snapshot_hash,snapshot FROM campaign_analyses "
+            "WHERE campaign_id=%s ORDER BY created_at DESC,id DESC LIMIT 1",
+            (campaign_id,),
+        ).fetchone()
+        previous_hash = previous["snapshot_hash"] if previous else None
+        if previous and content_hash(previous["snapshot"]) != previous_hash:
+            raise Conflict("Previous analysis snapshot integrity failure")
+        if command.previous_snapshot_hash != previous_hash:
+            raise Conflict("Proposal must reference the latest committed analysis snapshot")
         pool = [
             row["candidate_id"]
             for row in connection.execute(
@@ -150,6 +164,15 @@ def propose_batch(
             )
         except ValueError as error:
             raise Conflict(str(error)) from error
+        selection_context = {
+            "policy": "seeded_random",
+            "acquisition_version": "random-without-replacement-v1",
+            "model_revision": None,
+            "seed": campaign["seed"] + len(selected),
+            "candidate_pool_hash": content_hash(pool),
+            "excluded_candidate_ids": sorted(selected),
+            "previous_snapshot_hash": previous_hash,
+        }
         batch_id, run_id = uuid4(), uuid4()
         ordinal = latest["ordinal"] + 1 if latest else 1
         spec = RunPlan(
@@ -166,8 +189,9 @@ def propose_batch(
         )
         connection.execute(
             """INSERT INTO experiment_batches
-            (id,campaign_id,ordinal,run_id,plan_hash,run_spec,status,created_by)
-            VALUES (%s,%s,%s,%s,%s,%s,'AWAITING_APPROVAL',%s)""",
+            (id,campaign_id,ordinal,run_id,plan_hash,run_spec,status,created_by,
+             previous_snapshot_hash,selection_context)
+            VALUES (%s,%s,%s,%s,%s,%s,'AWAITING_APPROVAL',%s,%s,%s)""",
             (
                 batch_id,
                 campaign_id,
@@ -176,6 +200,8 @@ def propose_batch(
                 spec.plan_hash(),
                 Jsonb(spec.model_dump(mode="json")),
                 actor,
+                previous_hash,
+                Jsonb(selection_context),
             ),
         )
         connection.execute(

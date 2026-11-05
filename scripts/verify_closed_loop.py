@@ -47,12 +47,13 @@ with connect() as db:
         trace,
     )
     summary = {"campaign_id": str(campaign.id), "group_id": group, "split_seed": 42, "batches": []}
+    previous_hash = None
     for index in range(6):
         state = db.execute("SELECT * FROM campaigns WHERE id=%s", (campaign.id,)).fetchone()
         batch = propose_batch(
             db,
             campaign.id,
-            ProposeCommand(expected_version=state["version"]),
+            ProposeCommand(expected_version=state["version"], previous_snapshot_hash=previous_hash),
             "local-scientist",
             f"{trace}-plan-{index}",
             uuid4(),
@@ -91,6 +92,7 @@ with connect() as db:
             uuid4(),
             trace,
         )
+        previous_hash = analysis["snapshot_hash"]
         summary["batches"].append(
             {
                 "run_id": str(batch["run_id"]),

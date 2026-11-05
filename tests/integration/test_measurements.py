@@ -1,17 +1,21 @@
 import hashlib
 import json
+import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 from uuid import uuid4
 
 import psycopg
 import pytest
 from atlas_campaigns.analysis import analyze
-from atlas_campaigns.database import Connection
-from atlas_campaigns.execution import claim_next, enqueue_simulation, transition
+from atlas_campaigns.database import Connection, connect
+from atlas_campaigns.execution import claim_next, enqueue_simulation, record_receipt, transition
 from atlas_campaigns.models import CreateCampaign
 from atlas_campaigns.service import Conflict, create_campaign
 from atlas_campaigns.workflow import DecisionCommand, ProposeCommand, decide_batch, propose_batch
 from atlas_measurements.oracle import reveal
+from psycopg import sql
 from psycopg.types.json import Jsonb
 
 pytestmark = pytest.mark.integration
@@ -101,6 +105,17 @@ def test_release_gating_idempotency_and_no_synthetic_training(
     claimed = claim_next(database, tmp_path / "runs")
     assert claimed is not None
     with database.transaction():
+        record_receipt(
+            database,
+            claimed,
+            {
+                "run_id": str(run_id),
+                "protocol_hash": claimed["protocol_hash"],
+                "simulator_version": "10.1.0",
+                "status": "SIMULATED",
+                "source_kind": "synthetic_test",
+            },
+        )
         transition(database, claimed, "SIMULATED", "test-simulation")
     oracle.write_bytes(records + b"tampered")
     with pytest.raises(Conflict, match="checksum"):
@@ -118,6 +133,40 @@ def test_release_gating_idempotency_and_no_synthetic_training(
 
     run = database.execute("SELECT version FROM experiment_runs WHERE id=%s", (run_id,)).fetchone()
     assert run is not None
+    with pytest.raises(RuntimeError), database.transaction():
+        analyze(database, run_id, run["version"], "scientist", "rolled-back", uuid4(), "trace")
+        raise RuntimeError("failure before commit")
+    assert (
+        database.execute("SELECT * FROM campaign_analyses WHERE run_id=%s", (run_id,)).fetchone()
+        is None
+    )
+    persisted = database.execute(
+        "SELECT status FROM experiment_runs WHERE id=%s", (run_id,)
+    ).fetchone()
+    assert persisted is not None and persisted["status"] == "QC_COMPLETE"
+    schema_row = database.execute("SELECT current_schema() AS name").fetchone()
+    assert schema_row is not None
+    barrier = Barrier(2)
+
+    def concurrent_analysis(index: int) -> dict[str, object]:
+        with connect(os.environ["ATLAS_TEST_DATABASE_URL"]) as independent:
+            independent.execute(
+                sql.SQL("SET search_path TO {}").format(sql.Identifier(schema_row["name"]))
+            )
+            barrier.wait(timeout=10)
+            return analyze(
+                independent,
+                run_id,
+                run["version"],
+                "scientist",
+                f"concurrent-{index}",
+                uuid4(),
+                "trace",
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(concurrent_analysis, range(2)))
+    assert results[0]["id"] == results[1]["id"]
     result = analyze(database, run_id, run["version"], "scientist", "analyze", uuid4(), "trace")
     assert result["snapshot"]["observations"] == []
     assert result["snapshot"]["best_observed"] is None
@@ -125,21 +174,48 @@ def test_release_gating_idempotency_and_no_synthetic_training(
         analyze(database, run_id, run["version"], "scientist", "analyze", uuid4(), "trace")["id"]
         == result["id"]
     )
-    with pytest.raises(Conflict):
-        analyze(database, run_id, run["version"], "scientist", "new-analysis", uuid4(), "trace")
+    assert (
+        analyze(database, run_id, run["version"], "scientist", "new-analysis", uuid4(), "trace")[
+            "id"
+        ]
+        == result["id"]
+    )
     current = database.execute(
         "SELECT version FROM campaigns WHERE id=%s", (campaign.id,)
     ).fetchone()
     assert current is not None
-    next_batch = propose_batch(
-        database,
-        campaign.id,
-        ProposeCommand(expected_version=current["version"]),
-        "scientist",
-        "next-plan",
-        uuid4(),
-        "trace",
-    )
+    barrier = Barrier(2)
+
+    def concurrent_proposal(index: int) -> dict[str, object] | None:
+        with connect(os.environ["ATLAS_TEST_DATABASE_URL"]) as independent:
+            independent.execute(
+                sql.SQL("SET search_path TO {}").format(sql.Identifier(schema_row["name"]))
+            )
+            barrier.wait(timeout=10)
+            try:
+                return propose_batch(
+                    independent,
+                    campaign.id,
+                    ProposeCommand(
+                        expected_version=current["version"],
+                        previous_snapshot_hash=result["snapshot_hash"],
+                    ),
+                    "scientist",
+                    f"next-plan-{index}",
+                    uuid4(),
+                    "trace",
+                )
+            except Conflict:
+                return None
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        proposals = list(executor.map(concurrent_proposal, range(2)))
+    successful = [p for p in proposals if p is not None]
+    assert len(successful) == 1
+    next_batch = database.execute(
+        "SELECT * FROM experiment_batches WHERE id=%s", (successful[0]["id"],)
+    ).fetchone()
+    assert next_batch is not None
     assert not set(next_batch["run_spec"]["candidate_ids"]) & set(
         batch["run_spec"]["candidate_ids"]
     )

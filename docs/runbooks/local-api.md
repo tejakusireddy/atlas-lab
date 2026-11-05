@@ -28,7 +28,7 @@ The API supports draft creation, planning, independent review, and queued simula
 
 ## Planning and review
 
-`POST /v1/campaigns/{id}/plan` accepts `{"expected_version": 0}` for a new draft plus an idempotency key. The initial planner is a seeded random baseline over the registered candidate pool. It persists a water-placeholder work order and returns `AWAITING_APPROVAL`, `run_spec`, and `plan_hash`. The campaign version advances; read it again before another mutation.
+`POST /v1/campaigns/{id}/plan` accepts `{"expected_version": 0}` for a new draft plus an idempotency key. The initial planner is a seeded random baseline over the registered candidate pool. It persists a water-placeholder work order and returns `AWAITING_APPROVAL`, `run_spec`, and `plan_hash`. The campaign version advances; read it again before another mutation. After analysis, the next proposal must also include `previous_snapshot_hash` from the latest committed analysis.
 
 A reviewer lists `/v1/approvals/pending` or reads `/v1/campaigns/{id}/batches/{batch_id}`. Approve or reject by posting `{"expected_version": 0, "plan_hash": "sha256:..."}` to the corresponding `/approve` or `/reject` endpoint with a new idempotency key. The reviewer must differ from the proposer. The hash must match the full immutable work order; stale versions and changed hashes conflict. Approvals expire after one hour and must be rechecked before dispatch.
 

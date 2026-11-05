@@ -8,7 +8,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 ## Project status
 
-**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning, independent review, and durable dispatch to the real Opentrons simulator are available. Checksum-verified historical outcome release, immutable QC records, and analysis snapshots are available. The seeded-random campaign loop has completed six real simulator batches; model-guided updates remain pending.
+**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP API supports registered datasets and owner-scoped campaign drafts. Planning, independent review, and durable dispatch to the real Opentrons simulator are available. Checksum-verified historical outcome release, immutable QC records, and analysis snapshots with receipt and prior-snapshot lineage are available. The seeded-random campaign loop has completed six real simulator batches; model-guided updates remain pending.
 
 | Deliverable | Status |
 | --- | --- |

@@ -14,7 +14,11 @@ Read released records through the owner-scoped `GET /v1/campaigns/{id}/measureme
 
 Release ends at `QC_COMPLETE`. The owner posts the current run `expected_version` to `/v1/runs/{run_id}/analyze` with an idempotency key. This freezes a hash-bound snapshot of released, QC-passed historical observations, QC counts, and the best observed yield with its measurement ID. No observations means no best yield, rather than an invented zero.
 
-Analysis advances the run to `ANALYZED`, allowing another proposal. Read the new campaign version before planning. Once the reserved budget is exhausted and the final batch is analyzed, the campaign becomes `COMPLETE`; this means budget completion, not that all outcomes passed QC. Read snapshots at `/v1/campaigns/{id}/analyses`.
+Analysis advances the run to `ANALYZED`, allowing another proposal. Read the new campaign version before planning and include `previous_snapshot_hash` equal to the latest analysis hash in the proposal command. The first proposal uses null. A missing or stale hash conflicts. Once the reserved budget is exhausted and the final batch is analyzed, the campaign becomes `COMPLETE`; this means budget completion, not that all outcomes passed QC. Read snapshots at `/v1/campaigns/{id}/analyses`.
+
+Snapshot schema 1.1 includes campaign/run/batch identity and ordinal, ordered selected IDs, approved work-order hash, canonical simulation receipt hash, every released measurement ID and QC state, explicit zero counts for absent QC categories, batch and cumulative best observations, the previous snapshot hash, and selection provenance. Provenance records the acquisition version, effective seed, candidate-pool hash, excluded IDs, and explicit null model revision. The snapshot content hash is stored alongside its immutable payload. Legacy schema 1.0 snapshots are retained unchanged.
+
+A receipt is stored immutably in PostgreSQL when execution completes or is reconciled; normal completion also requires agreement between durable receipt and vendor stdout. Analysis refuses to proceed without verified receipt evidence. Same-key and different-key analysis retries return the one committed snapshot. Snapshot insertion, run advancement, campaign progress, audit, and outbox publication intent commit together. Concurrent proposal requests serialize on the campaign and cannot create two successors at the same version.
 
 The current live selection policy remains seeded random and snapshots explicitly have no model revision. Model-guided selection is pending.
 

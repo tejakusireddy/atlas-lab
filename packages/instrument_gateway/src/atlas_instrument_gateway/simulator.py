@@ -71,6 +71,9 @@ def simulate_plan(plan: RunPlan, output: Path, timeout: float = 120) -> dict[str
                 or receipt["status"] != "SIMULATED"
             ):
                 raise ValueError("Vendor receipt does not match the compiled protocol")
+            durable = json.loads((receipt_directory / "receipt.json").read_text())
+            if durable != receipt:
+                raise ValueError("Durable receipt differs from vendor output")
             manifest.update(status="SIMULATED", receipt=receipt)
     except subprocess.TimeoutExpired:
         # CLI timeout does not prove container completion; do not redispatch.

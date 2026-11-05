@@ -23,6 +23,7 @@ from atlas_campaigns.workflow import (
     DecisionCommand,
     Forbidden,
     ProposeCommand,
+    VersionCommand,
     decide_batch,
     get_batch,
     propose_batch,
@@ -224,7 +225,7 @@ def create_app() -> FastAPI:
     def analyze_run(
         request: Request,
         run_id: UUID,
-        command: ProposeCommand,
+        command: VersionCommand,
         identity: Identity,
         connection: Database,
         idempotency_key: IdempotencyKey,
@@ -377,7 +378,7 @@ def create_app() -> FastAPI:
     def simulate(
         request: Request,
         run_id: UUID,
-        command: ProposeCommand,
+        command: VersionCommand,
         identity: Identity,
         connection: Database,
         idempotency_key: IdempotencyKey,
@@ -421,7 +422,7 @@ def create_app() -> FastAPI:
     def reconcile_run(
         request: Request,
         run_id: UUID,
-        command: ProposeCommand,
+        command: VersionCommand,
         identity: Identity,
         connection: Database,
         idempotency_key: IdempotencyKey,
