@@ -5,6 +5,9 @@ requires-python = ">=3.11,<3.12"
 license = "Apache-2.0"
 dependencies = ["atlas-domain", "pydantic>=2.11,<3"]
 
+[project.scripts]
+atlas-simulate = "atlas_instrument_gateway.simulator:main"
+
 [tool.uv.sources]
 atlas-domain = { workspace = true }
 

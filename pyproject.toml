@@ -11,6 +11,7 @@ package = false
 
 [tool.uv.workspace]
 members = ["packages/*", "apps/api"]
+exclude = ["workers/opentrons_sim"]
 
 [tool.uv.sources]
 atlas-domain = { workspace = true }

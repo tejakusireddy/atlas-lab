@@ -19,7 +19,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | Sequential evaluator | Random, diversity, greedy, and ensemble acquisition implemented |
 | PostgreSQL campaign persistence | Available with idempotency, audit, and outbox transactions |
 | Campaign HTTP API | Dataset registration, draft creation, and owner-scoped reads |
-| Simulation work orders | Validated immutable contract and deterministic protocol compiler |
+| Simulation work orders | Validated contract, deterministic compiler, and tested Opentrons worker |
 | Approved simulation and historical replay loop | Planned — G1 |
 | Durable execution, reconciliation, and telemetry | Planned — G2 |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
@@ -78,7 +78,7 @@ Runs paired policies on historical candidates, with eight shared initial selecti
 
 ## Simulation work orders
 
-The first Flex profile compiles validated water-placeholder transfers from immutable typed work orders. The [generated schema](contracts/experiment_runspec.schema.json) and [approval hash decision](docs/adr/001-approval-hash-boundary.md) define the supported boundary. Vendor simulator execution and application dispatch are not yet connected.
+The first Flex profile compiles validated water-placeholder transfers from immutable typed work orders. The [generated schema](contracts/experiment_runspec.schema.json) and [approval hash decision](docs/adr/001-approval-hash-boundary.md) define the supported boundary. The isolated Opentrons 10.1.0 worker passes real one-, eight-, and 96-transfer simulation tests. See the [simulator runbook](docs/runbooks/simulator.md). Application dispatch is not yet connected.
 
 ## NVIDIA delivery scope
 

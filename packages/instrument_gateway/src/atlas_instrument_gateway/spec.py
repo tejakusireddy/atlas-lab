@@ -10,7 +10,7 @@ Slot = Literal["A1", "A2", "B1", "B2", "B3", "C1", "C2", "C3", "D1", "D2", "D3"]
 
 
 class Transfer(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, validate_default=True)
     candidate_id: str = Field(min_length=1, max_length=200)
     operation: Literal["transfer"] = "transfer"
     source_well: Literal["A1"] = "A1"
@@ -19,7 +19,7 @@ class Transfer(BaseModel):
 
 
 class RunPlan(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, validate_default=True)
     schema_version: Literal["1.0"] = "1.0"
     campaign_id: UUID
     batch_id: UUID

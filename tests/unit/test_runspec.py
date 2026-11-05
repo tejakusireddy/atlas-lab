@@ -46,6 +46,7 @@ def test_unsafe_or_unsupported_spec_is_rejected(changes: dict[str, object]) -> N
 def test_hash_binds_transfer_and_compiler_revalidates() -> None:
     original = plan()
     artifact = compile_protocol(original)
+    assert artifact.plan_hash == original.plan_hash()
     assert artifact == compile_protocol(original)
     changed = RunPlan.model_validate(
         {

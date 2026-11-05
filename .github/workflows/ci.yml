@@ -22,3 +22,5 @@ jobs:
       - run: make db-up
       - run: make migrate
       - run: make integration
+      - run: make sim-image
+      - run: make sim
