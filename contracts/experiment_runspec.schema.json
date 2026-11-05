@@ -1,0 +1,231 @@
+{
+  "$defs": {
+    "Transfer": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "operation": {
+          "const": "transfer",
+          "default": "transfer",
+          "title": "Operation",
+          "type": "string"
+        },
+        "source_well": {
+          "const": "A1",
+          "default": "A1",
+          "title": "Source Well",
+          "type": "string"
+        },
+        "destination_well": {
+          "pattern": "^[A-H](?:[1-9]|1[0-2])$",
+          "title": "Destination Well",
+          "type": "string"
+        },
+        "volume_ul": {
+          "default": 50,
+          "maximum": 200,
+          "minimum": 5,
+          "title": "Volume Ul",
+          "type": "number"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "destination_well"
+      ],
+      "title": "Transfer",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "campaign_id": {
+      "format": "uuid",
+      "title": "Campaign Id",
+      "type": "string"
+    },
+    "batch_id": {
+      "format": "uuid",
+      "title": "Batch Id",
+      "type": "string"
+    },
+    "run_id": {
+      "format": "uuid",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_dataset_snapshot": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Source Dataset Snapshot",
+      "type": "string"
+    },
+    "created_by": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Created By",
+      "type": "string"
+    },
+    "policy_version": {
+      "const": "flex-water-v1",
+      "default": "flex-water-v1",
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "execution_mode": {
+      "const": "simulation",
+      "default": "simulation",
+      "title": "Execution Mode",
+      "type": "string"
+    },
+    "instrument_profile": {
+      "const": "opentrons-flex-sim",
+      "default": "opentrons-flex-sim",
+      "title": "Instrument Profile",
+      "type": "string"
+    },
+    "liquid": {
+      "const": "water_placeholder",
+      "default": "water_placeholder",
+      "title": "Liquid",
+      "type": "string"
+    },
+    "api_level": {
+      "const": "2.20",
+      "default": "2.20",
+      "title": "Api Level",
+      "type": "string"
+    },
+    "pipette": {
+      "const": "flex_1channel_1000",
+      "default": "flex_1channel_1000",
+      "title": "Pipette",
+      "type": "string"
+    },
+    "source_labware": {
+      "const": "nest_12_reservoir_15ml",
+      "default": "nest_12_reservoir_15ml",
+      "title": "Source Labware",
+      "type": "string"
+    },
+    "destination_labware": {
+      "const": "corning_96_wellplate_360ul_flat",
+      "default": "corning_96_wellplate_360ul_flat",
+      "title": "Destination Labware",
+      "type": "string"
+    },
+    "tiprack": {
+      "const": "opentrons_flex_96_tiprack_1000ul",
+      "default": "opentrons_flex_96_tiprack_1000ul",
+      "title": "Tiprack",
+      "type": "string"
+    },
+    "source_slot": {
+      "default": "D1",
+      "enum": [
+        "A1",
+        "A2",
+        "B1",
+        "B2",
+        "B3",
+        "C1",
+        "C2",
+        "C3",
+        "D1",
+        "D2",
+        "D3"
+      ],
+      "title": "Source Slot",
+      "type": "string"
+    },
+    "destination_slot": {
+      "default": "D2",
+      "enum": [
+        "A1",
+        "A2",
+        "B1",
+        "B2",
+        "B3",
+        "C1",
+        "C2",
+        "C3",
+        "D1",
+        "D2",
+        "D3"
+      ],
+      "title": "Destination Slot",
+      "type": "string"
+    },
+    "tiprack_slot": {
+      "default": "C1",
+      "enum": [
+        "A1",
+        "A2",
+        "B1",
+        "B2",
+        "B3",
+        "C1",
+        "C2",
+        "C3",
+        "D1",
+        "D2",
+        "D3"
+      ],
+      "title": "Tiprack Slot",
+      "type": "string"
+    },
+    "trash_slot": {
+      "const": "A3",
+      "default": "A3",
+      "title": "Trash Slot",
+      "type": "string"
+    },
+    "source_available_ul": {
+      "default": 10000,
+      "maximum": 12000,
+      "minimum": 500,
+      "title": "Source Available Ul",
+      "type": "number"
+    },
+    "candidate_ids": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 96,
+      "minItems": 1,
+      "title": "Candidate Ids",
+      "type": "array"
+    },
+    "transfers": {
+      "items": {
+        "$ref": "#/$defs/Transfer"
+      },
+      "maxItems": 96,
+      "minItems": 1,
+      "title": "Transfers",
+      "type": "array"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "batch_id",
+    "run_id",
+    "source_dataset_snapshot",
+    "created_by",
+    "candidate_ids",
+    "transfers"
+  ],
+  "title": "RunPlan",
+  "type": "object"
+}

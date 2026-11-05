@@ -12,6 +12,7 @@ members = [
     "atlas-api",
     "atlas-campaigns",
     "atlas-domain",
+    "atlas-instrument-gateway",
     "atlas-lab",
     "atlas-optimization",
     "atlas-science",
@@ -209,6 +210,21 @@ version = "0.1.0"
 source = { editable = "packages/domain" }
 
 [[package]]
+name = "atlas-instrument-gateway"
+version = "0.1.0"
+source = { editable = "packages/instrument_gateway" }
+dependencies = [
+    { name = "atlas-domain" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "atlas-domain", editable = "packages/domain" },
+    { name = "pydantic", specifier = ">=2.11,<3" },
+]
+
+[[package]]
 name = "atlas-lab"
 version = "0.1.0"
 source = { virtual = "." }
@@ -216,6 +232,7 @@ dependencies = [
     { name = "atlas-api" },
     { name = "atlas-campaigns" },
     { name = "atlas-domain" },
+    { name = "atlas-instrument-gateway" },
     { name = "atlas-optimization" },
     { name = "atlas-science" },
 ]
@@ -235,6 +252,7 @@ requires-dist = [
     { name = "atlas-api", editable = "apps/api" },
     { name = "atlas-campaigns", editable = "packages/campaigns" },
     { name = "atlas-domain", editable = "packages/domain" },
+    { name = "atlas-instrument-gateway", editable = "packages/instrument_gateway" },
     { name = "atlas-optimization", editable = "packages/optimization" },
     { name = "atlas-science", editable = "packages/science" },
 ]
