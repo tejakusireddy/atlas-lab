@@ -159,7 +159,7 @@ def create_app() -> FastAPI:
                 "physical_dispatch": False,
                 "campaign_persistence": True,
                 "protocol_simulator": "opentrons_10.1.0_worker",
-                "oracle_replay": "not_implemented",
+                "oracle_replay": "separate_checksum_verified_worker",
                 "nvidia_providers": "not_configured",
                 "auth_profile": "local_demo"
                 if os.environ.get("ATLAS_LOCAL_DEMO_AUTH") == "true"
@@ -202,6 +202,22 @@ def create_app() -> FastAPI:
         request: Request, campaign_id: UUID, identity: Identity, connection: Database
     ) -> dict[str, Any]:
         return envelope(request, get_campaign(connection, campaign_id, identity.actor))
+
+    @app.get("/v1/campaigns/{campaign_id}/measurements")
+    def measurements(
+        request: Request, campaign_id: UUID, identity: Identity, connection: Database
+    ) -> dict[str, Any]:
+        get_campaign(connection, campaign_id, identity.actor)
+        return envelope(
+            request,
+            list(
+                connection.execute(
+                    "SELECT * FROM measurements WHERE campaign_id=%s "
+                    "ORDER BY revealed_at,candidate_id",
+                    (campaign_id,),
+                )
+            ),
+        )
 
     @app.get("/v1/datasets")
     def datasets(request: Request, identity: Identity, connection: Database) -> dict[str, Any]:

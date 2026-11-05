@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Reproducible reaction optimization and laboratory protocol simulation"
 requires-python = ">=3.11,<3.12"
 license = "Apache-2.0"
-dependencies = ["atlas-domain", "atlas-science", "atlas-optimization", "atlas-campaigns", "atlas-api", "atlas-instrument-gateway"]
+dependencies = ["atlas-measurements", "atlas-domain", "atlas-science", "atlas-optimization", "atlas-campaigns", "atlas-api", "atlas-instrument-gateway"]
 
 [tool.uv]
 package = false
@@ -14,6 +14,7 @@ members = ["packages/*", "apps/api"]
 exclude = ["workers/opentrons_sim"]
 
 [tool.uv.sources]
+atlas-measurements = { workspace = true }
 atlas-domain = { workspace = true }
 atlas-science = { workspace = true }
 atlas-optimization = { workspace = true }

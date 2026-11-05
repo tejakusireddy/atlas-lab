@@ -1,0 +1,20 @@
+[project]
+name = "atlas-measurements"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+license = "Apache-2.0"
+dependencies = ["atlas-campaigns", "atlas-science"]
+
+[project.scripts]
+atlas-reveal = "atlas_measurements.oracle:main"
+
+[tool.uv.sources]
+atlas-campaigns = { workspace = true }
+atlas-science = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/atlas_measurements"]

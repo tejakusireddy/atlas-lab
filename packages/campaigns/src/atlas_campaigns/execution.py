@@ -18,6 +18,8 @@ from atlas_campaigns.service import Conflict, NotFound
 from atlas_campaigns.workflow import prior_mutation, record_mutation
 
 TRANSITIONS = {
+    "SIMULATED": {"MEASUREMENT_PENDING"},
+    "MEASUREMENT_PENDING": {"QC_COMPLETE"},
     "APPROVED": {"VALIDATING"},
     "VALIDATING": {"VALIDATED", "FAILED_PRE_DISPATCH"},
     "VALIDATED": {"DISPATCH_PENDING"},

@@ -14,6 +14,7 @@ members = [
     "atlas-domain",
     "atlas-instrument-gateway",
     "atlas-lab",
+    "atlas-measurements",
     "atlas-optimization",
     "atlas-science",
 ]
@@ -237,6 +238,7 @@ dependencies = [
     { name = "atlas-campaigns" },
     { name = "atlas-domain" },
     { name = "atlas-instrument-gateway" },
+    { name = "atlas-measurements" },
     { name = "atlas-optimization" },
     { name = "atlas-science" },
 ]
@@ -257,6 +259,7 @@ requires-dist = [
     { name = "atlas-campaigns", editable = "packages/campaigns" },
     { name = "atlas-domain", editable = "packages/domain" },
     { name = "atlas-instrument-gateway", editable = "packages/instrument_gateway" },
+    { name = "atlas-measurements", editable = "packages/measurements" },
     { name = "atlas-optimization", editable = "packages/optimization" },
     { name = "atlas-science", editable = "packages/science" },
 ]
@@ -269,6 +272,21 @@ dev = [
     { name = "pre-commit", specifier = ">=4" },
     { name = "pytest", specifier = ">=8" },
     { name = "ruff", specifier = ">=0.11" },
+]
+
+[[package]]
+name = "atlas-measurements"
+version = "0.1.0"
+source = { editable = "packages/measurements" }
+dependencies = [
+    { name = "atlas-campaigns" },
+    { name = "atlas-science" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "atlas-campaigns", editable = "packages/campaigns" },
+    { name = "atlas-science", editable = "packages/science" },
 ]
 
 [[package]]
