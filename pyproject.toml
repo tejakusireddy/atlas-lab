@@ -37,5 +37,5 @@ addopts = "-ra --strict-markers"
 markers = ["integration: requires external services", "scientific: scientific integrity checks"]
 
 [[tool.mypy.overrides]]
-module = ["rdkit.*"]
+module = ["rdkit.*", "sklearn.*", "catboost.*", "scipy.*", "matplotlib.*", "joblib.*"]
 ignore_missing_imports = true
