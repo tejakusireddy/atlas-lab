@@ -86,6 +86,8 @@ After importing the pinned Doyle snapshot and building the simulator image, run 
 
 The seeded-random selector remains the reference. Greedy, diversity, and ensemble-UCB workflows are verified alongside it; model-backed runs use Random Forest or CatBoost. See [live acquisition](docs/reproducibility/live-acquisition.md). LangGraph and NVIDIA integration work is deferred until this deterministic reference is established and retained as a regression gate. CI includes the reference test; hosted results remain pending a push.
 
+Paired live-engine evaluation is available for both predictors: four strategies, five seeds, and three held-out groups. See [measured results and limitations](docs/reproducibility/live-acquisition-results.md). The profile currently uses campaign-local released labels only.
+
 ## NVIDIA delivery scope
 
 NVIDIA integrations are planned deliverables with explicit evaluation requirements:
