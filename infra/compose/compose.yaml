@@ -1,0 +1,19 @@
+name: atlas-lab
+services:
+  postgres:
+    image: postgres:17@sha256:3b0cda93be7c8dba2ed484d19393d93845dc3dafb88973e248ba8e6d99d784e1
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: atlas-local-only
+      POSTGRES_DB: atlas
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  postgres-data:

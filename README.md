@@ -8,7 +8,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 ## Project status
 
-**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. There is no runnable campaign application, validated migration, or completed comparative benchmark yet.
+**Foundations in development.** The Python workspace provides deterministic artifact hashing, local quality checks, and a checksum-verified Doyle dataset importer. PostgreSQL campaign persistence and migrations are available; the HTTP campaign application and execution workflow are still in development.
 
 | Deliverable | Status |
 | --- | --- |
@@ -17,6 +17,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | Group splits and finite-pool selection | Available with leakage, uniqueness, and budget checks |
 | CPU predictive baselines | Random Forest and CatBoost evaluation available |
 | Sequential evaluator | Random, diversity, greedy, and ensemble acquisition implemented |
+| PostgreSQL campaign persistence | Available with idempotency, audit, and outbox transactions |
 | Approved simulation and historical replay loop | Planned — G1 |
 | Durable execution, reconciliation, and telemetry | Planned — G2 |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
@@ -27,6 +28,16 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 The target system uses a React/TypeScript workbench and a modular FastAPI application. PostgreSQL owns campaign state, approvals, measurement provenance, and transactional outbox events. Isolated workers handle protocol simulation and model training. Content-addressed artifacts retain data, protocol, model, and report lineage.
 
 The local reference profile must run on CPU without cloud credentials or physical laboratory equipment. Historical campaign outcomes remain isolated from planning and training until eligible selections have completed simulation. Missing measurements remain unobserved; only source-backed, QC-passed observations enter scientific model updates.
+
+## Local database
+
+```sh
+make db-up
+make migrate
+make integration
+```
+
+Requires Docker Desktop. See the [local database runbook](docs/runbooks/local-database.md) for connection settings and test isolation.
 
 ## Dataset import
 
