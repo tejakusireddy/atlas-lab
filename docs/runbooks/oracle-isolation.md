@@ -28,7 +28,7 @@ docker compose -f infra/compose/compose.yaml -f infra/compose/isolated.yaml run 
   RUN_UUID --snapshot /private-snapshot
 ```
 
-The API is exposed only on host loopback port 8001. Use the existing local demonstration identities. PostgreSQL migrations and candidate registration remain explicit operator operations.
+The API is exposed only at `http://127.0.0.1:8001`, forwarding to container port 8000. Interactive documentation is at [http://127.0.0.1:8001/docs](http://127.0.0.1:8001/docs). The host development `atlas-api` command separately uses `127.0.0.1:8000`. Use the existing local demonstration identities. PostgreSQL migrations and candidate registration remain explicit operator operations.
 
 ## Trust boundary
 
