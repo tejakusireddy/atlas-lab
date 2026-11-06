@@ -26,5 +26,7 @@ jobs:
       - run: make sim
       - run: make workflow
       - run: make faults
+      - run: make runtime-image
+      - run: make isolation
       - run: uv run --locked atlas-import --download
       - run: make reference-workflow

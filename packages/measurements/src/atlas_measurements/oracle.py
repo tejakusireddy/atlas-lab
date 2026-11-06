@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 from atlas_campaigns.database import Connection, connect
 from atlas_campaigns.execution import transition
 from atlas_campaigns.service import Conflict, NotFound
+from atlas_campaigns.telemetry import operation
 from atlas_instrument_gateway.spec import RunPlan
 from atlas_science.records import Observation
 from psycopg.types.json import Jsonb
@@ -61,6 +62,7 @@ def quality(
     return "PASSED", observation.observed_yield_pct, None
 
 
+@operation("oracle.reveal")
 def reveal(connection: Connection, run_id: UUID, snapshot: Path) -> list[dict[str, Any]]:
     with connection.transaction():
         run = connection.execute(

@@ -22,7 +22,7 @@ Use a returned snapshot/group pair in `POST /v1/campaigns`, with `Authorization:
 
 A successful response contains a durable `DRAFT` campaign. `GET /v1/campaigns` supports `limit` and `offset`; `GET /v1/campaigns/{id}` is owner-scoped. Repeating a creation request with the same identity/key/body returns the same campaign. Changing the body under that key returns 409. Authentication failures return 401, role failures 403, missing/other-owner resources 404, and invalid commands 422.
 
-Responses include `data`, `errors`, and `meta` with request ID, correlation trace ID, and schema version. Trace IDs currently correlate API/audit records; distributed tracing export is not yet implemented. `/health/live`, `/health/ready`, and `/v1/system/capabilities` expose operational status. Capabilities explicitly distinguish unimplemented simulation/oracle features and unconfigured NVIDIA providers.
+Responses include `data`, `errors`, and `meta` with request ID, correlation trace ID, and schema version. Trace IDs currently correlate API/audit records; OpenTelemetry campaign traces can be enabled separately; see the [observability runbook](observability.md). `/health/live`, `/health/ready`, and `/v1/system/capabilities` expose operational status. Capabilities explicitly distinguish unimplemented simulation/oracle features and unconfigured NVIDIA providers.
 
 The API supports draft creation, planning, independent review, and queued simulation. Historical measurement release is available through a separate worker; reports remain pending.
 

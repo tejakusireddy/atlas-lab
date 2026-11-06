@@ -15,6 +15,7 @@ from psycopg.types.json import Jsonb
 
 from atlas_campaigns.database import Connection, connect
 from atlas_campaigns.service import Conflict, NotFound
+from atlas_campaigns.telemetry import operation, resource_span
 from atlas_campaigns.workflow import prior_mutation, record_mutation
 
 TRANSITIONS = {
@@ -103,6 +104,7 @@ def validate_approval(connection: Connection, run: dict[str, Any], spec: RunPlan
         raise Conflict("Missing, expired, or mismatched independent approval")
 
 
+@operation("lab.dispatch")
 def enqueue_simulation(
     connection: Connection,
     run_id: UUID,
@@ -202,9 +204,10 @@ def execute_next(connection: Connection, root: Path) -> dict[str, Any] | None:
     if claimed is None:
         return None
     try:
-        result = simulate_plan(
-            RunPlan.model_validate(claimed["run_spec"]), Path(claimed["artifact_directory"])
-        )
+        with resource_span(connection, "lab.simulate", run_id=claimed["id"]):
+            result = simulate_plan(
+                RunPlan.model_validate(claimed["run_spec"]), Path(claimed["artifact_directory"])
+            )
         status = result["status"]
     except Exception:
         # Any exception after claim is conservative: execution may have occurred.
@@ -232,6 +235,7 @@ def recover_expired(connection: Connection) -> int:
         return len(runs)
 
 
+@operation("lab.reconcile")
 def reconcile(
     connection: Connection,
     run_id: UUID,

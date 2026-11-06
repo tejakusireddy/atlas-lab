@@ -21,7 +21,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | Campaign HTTP API | Dataset registration, drafts, immutable plans, and independent approvals |
 | Simulation work orders | Validated contract, deterministic compiler, and tested Opentrons worker |
 | Approved simulation and historical replay loop | Reproducible six-batch HTTP workflow verified twice against real source data and simulator |
-| Durable execution, reconciliation, and telemetry | Single-attempt dispatch and receipt reconciliation available; tracing export pending |
+| Durable execution, reconciliation, and telemetry | Process-loss recovery probes and opt-in OpenTelemetry export verified |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
 | Research evaluation and demonstration artifacts | Planned — G4 |
 
@@ -127,3 +127,5 @@ The public reference profile simulates representative nonhazardous liquid handli
 Repository code is licensed under [Apache-2.0](LICENSE). External datasets, model weights, and vendor assets retain their respective licenses; their access and redistribution terms must be verified before import or distribution.
 
 Historical outcomes are released by a separate worker after successful simulation. See the [historical results runbook](docs/runbooks/historical-results.md) for QC, provenance, and local isolation limits.
+
+The [isolated runtime](docs/runbooks/oracle-isolation.md) enforces private oracle mounts and UID permissions. See [recovery evidence](docs/runbooks/execution-recovery.md) and [campaign tracing](docs/runbooks/observability.md) for tested guarantees and deployment boundaries.
