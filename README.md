@@ -22,7 +22,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | Simulation work orders | Validated contract, deterministic compiler, and tested Opentrons worker |
 | Approved simulation and historical replay loop | Reproducible six-batch HTTP workflow verified twice against real source data and simulator |
 | Durable execution, reconciliation, and telemetry | Process-loss recovery probes and opt-in OpenTelemetry export verified |
-| Production identity, secrets, database roles, and constrained dispatch | Open rollout blockers; [acceptance requirements](docs/runbooks/production-rollout.md) |
+| Production identity, secrets, database roles, and constrained dispatch | Open rollout blockers; AWS Cognito/Secrets Manager selected; [acceptance requirements](docs/runbooks/production-rollout.md) |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
 | Research evaluation and demonstration artifacts | Planned — G4 |
 
@@ -41,6 +41,8 @@ make db-up
 make migrate
 make integration
 ```
+
+Production credential configuration uses a reloadable secret file and rejects development defaults; see the [rollout requirements](docs/runbooks/production-rollout.md#database-credential-interface).
 
 Requires Docker Desktop. See the [local database runbook](docs/runbooks/local-database.md) for connection settings and test isolation.
 

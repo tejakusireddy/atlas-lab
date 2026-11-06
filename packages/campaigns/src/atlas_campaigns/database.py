@@ -7,15 +7,36 @@ from pathlib import Path
 from typing import Any
 
 import psycopg
+from psycopg.conninfo import conninfo_to_dict
 from psycopg.rows import dict_row
+
+from atlas_campaigns.secrets import ConfigurationError, production_profile, read_secret_file
 
 LOCAL_DSN = "postgresql://atlas:atlas-local-only@127.0.0.1:55432/atlas"
 Connection = psycopg.Connection[dict[str, Any]]
 
 
 def connect(dsn: str | None = None) -> Connection:
+    configured = dsn or os.environ.get("ATLAS_DATABASE_URL")
+    production = production_profile()
+    if production and not configured:
+        raise ConfigurationError("Production requires ATLAS_DATABASE_URL")
+    target = configured or LOCAL_DSN
+    try:
+        parameters: dict[str, Any] = conninfo_to_dict(target)
+    except psycopg.ProgrammingError:
+        raise ConfigurationError("Invalid database connection configuration") from None
+    password_file = os.environ.get("ATLAS_DATABASE_PASSWORD_FILE")
+    if production and not password_file:
+        raise ConfigurationError("Production requires ATLAS_DATABASE_PASSWORD_FILE")
+    if password_file and ("password" in parameters or "passfile" in parameters):
+        raise ConfigurationError("Use one database credential source")
+    if production and not all(parameters.get(key) for key in ("host", "user", "dbname")):
+        raise ConfigurationError("Production requires an explicit database host, user and name")
+    if password_file:
+        parameters["password"] = read_secret_file(password_file)
     return psycopg.connect(
-        dsn or os.environ.get("ATLAS_DATABASE_URL", LOCAL_DSN),
+        **parameters,
         row_factory=dict_row,
         autocommit=True,
         connect_timeout=5,
