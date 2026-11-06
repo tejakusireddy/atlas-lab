@@ -91,6 +91,29 @@ def test_only_release_uid_can_read_private_outcomes(tmp_path: Path) -> None:
             service = config["services"][name]
             assert not service.get("volumes")
             assert service["read_only"] and service["cap_drop"] == ["ALL"]
+            assert service["tmpfs"] == ["/tmp:rw,nosuid,size=256m"]
+            launched = subprocess.run(
+                [
+                    "docker",
+                    "compose",
+                    "-f",
+                    "infra/compose/compose.yaml",
+                    "-f",
+                    "infra/compose/isolated.yaml",
+                    "run",
+                    "--rm",
+                    "--no-deps",
+                    "--entrypoint",
+                    "python",
+                    name,
+                    "-c",
+                    probe,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert launched.returncode != 0 and "FileNotFoundError" in launched.stderr
+            assert "private-test-sentinel" not in launched.stdout
         mounts = config["services"]["release"]["volumes"]
         assert len(mounts) == 1 and mounts[0]["read_only"]
     finally:
