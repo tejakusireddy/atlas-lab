@@ -1,0 +1,157 @@
+{
+  "schema_version": "1.0",
+  "name": "molmim-representation-evaluation-v1",
+  "status": "not_run",
+  "scientific_reference": "contracts/scientific_reference.v1.1.json",
+  "source_manifest_sha256": "d9fd00f15fd1f19b6b0ee397f046629aed8c7a4a97c024d597d099650c63973a",
+  "candidate_artifact_sha256": "7898561d44d92ae0ac4d9eafb8f1dd2b5c07ffe4468040c7a103ff42f889fa58",
+  "representations": [
+    "rdkit",
+    "molmim",
+    "combined"
+  ],
+  "role_order": [
+    "aryl",
+    "amine",
+    "base",
+    "ligand",
+    "additive"
+  ],
+  "absent_role_policy": "zero_block_for_empty_canonical_smiles_only",
+  "missing_embedding_policy": "fail_no_substitution",
+  "model_revision_required": true,
+  "provider_endpoint": "/embedding",
+  "source_endpoint_documentation": "https://docs.nvidia.com/nim/bionemo/molmim/1.0.0/endpoints",
+  "split_seed": 42,
+  "development_partitions": [
+    "train",
+    "calibration",
+    "campaign"
+  ],
+  "confirmatory_partition": "ood_test",
+  "partition_interpretation": "substrate_pair_held_out_with_shared_fixed_amine_not_strict_substrate_ood",
+  "prediction": {
+    "training_partition": "train",
+    "tuning_partition": "calibration",
+    "test_partition": "ood_test",
+    "heads": [
+      "random_forest",
+      "catboost"
+    ],
+    "head_settings": "identical_across_representations_locked_before_test",
+    "tuning_trials_per_arm": 0,
+    "metrics": [
+      "mae_pct_points",
+      "rmse_pct_points",
+      "spearman_rank_correlation"
+    ],
+    "head_parameters": {
+      "random_forest": {
+        "n_estimators": 128,
+        "min_samples_leaf": 2,
+        "max_features": 0.5,
+        "n_jobs": 1
+      },
+      "catboost": {
+        "iterations": 300,
+        "depth": 6,
+        "learning_rate": 0.05,
+        "loss_function": "RMSE",
+        "thread_count": 1,
+        "verbose": false,
+        "allow_writing_files": false
+      }
+    },
+    "head_source_sha256": "79f1a4da8085bb96a1af71d87938ce5916b10efa91727409cb9b9953df8ad767"
+  },
+  "sequential": {
+    "policies": [
+      "random",
+      "greedy",
+      "diversity",
+      "ensemble_ucb"
+    ],
+    "predictors": [
+      "random_forest",
+      "catboost"
+    ],
+    "seeds": [
+      11,
+      23,
+      42,
+      67,
+      101
+    ],
+    "batch_size": 8,
+    "budget": 48,
+    "checkpoints": [
+      8,
+      16,
+      24,
+      32,
+      40,
+      48
+    ],
+    "initial_design": "identical_seeded_random_eight_across_all_policies_and_representations",
+    "external_training": false,
+    "labels": "selected_released_qc_passed_historical_only",
+    "metrics": [
+      "best_observed_yield_pct",
+      "simple_regret_pct_points",
+      "improvement_over_random_pct_points",
+      "paired_difference_from_rdkit_pct_points"
+    ],
+    "engine_source_sha256": "c14eedc83bb9b6bfd1c627b84d06ddf26ab162fa0889b81360cf7dd6a136ec43"
+  },
+  "uncertainty": {
+    "experimental_unit": "held_out_group_after_averaging_paired_seeds",
+    "bootstrap_seed": 42,
+    "bootstrap_resamples": 2000,
+    "confidence_level": 0.95,
+    "ensemble_spread": "uncalibrated_acquisition_heuristic"
+  },
+  "coverage": {
+    "primary": "all_nonempty_molecular_inputs_required_before_any_primary_comparison",
+    "secondary": "outcome_blind_coverage_subset_only_with_identical_candidates_for_all_arms_and_at_least_48_per_group",
+    "report_exclusions": true
+  },
+  "resource_metrics": [
+    "embedding_cold_latency_s",
+    "embedding_cache_read_latency_s",
+    "embedding_request_count",
+    "embedding_failure_count",
+    "feature_bytes",
+    "fit_wall_time_s",
+    "peak_process_memory_bytes",
+    "hardware_and_runtime",
+    "gpu_seconds_if_measured",
+    "peak_vram_bytes_if_measured",
+    "billed_cost_if_available"
+  ],
+  "required_provenance": [
+    "contract_hash",
+    "candidate_input_hash",
+    "split_hash",
+    "feature_hash",
+    "provider",
+    "model_name",
+    "model_revision",
+    "preprocessing_version",
+    "embedding_dimension",
+    "embedding_artifact_hashes",
+    "training_candidate_ids",
+    "training_data_hash",
+    "head_parameters",
+    "seed",
+    "eligible_released_measurement_ids",
+    "selected_candidate_ids",
+    "predecessor_snapshot_hash",
+    "code_commit",
+    "dependency_lock_hash",
+    "execution_environment"
+  ],
+  "selection_rule": "no_automatic_promotion_report_all_arms_groups_seeds_checkpoints_and_negative_results",
+  "live_campaign_integration": false,
+  "paid_or_gpu_calls": "manual_opt_in_after_environment_and_budget_approval",
+  "feature_transform": "none_primary_secondary_requires_separate_protocol"
+}

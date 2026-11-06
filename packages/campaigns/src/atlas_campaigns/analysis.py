@@ -12,9 +12,11 @@ from psycopg.types.json import Jsonb
 from atlas_campaigns.database import Connection
 from atlas_campaigns.execution import get_run, transition
 from atlas_campaigns.service import Conflict
+from atlas_campaigns.telemetry import local_span, operation
 from atlas_campaigns.workflow import prior_mutation, record_mutation
 
 
+@operation("campaign.analyze")
 def analyze(
     connection: Connection,
     run_id: UUID,
@@ -112,16 +114,17 @@ def analyze(
                     (campaign["id"],),
                 )
             ]
-            next_decision, artifact = decide(
-                candidates,
-                selected,
-                {m["candidate_id"]: m["observed_yield_pct"] for m in observations},
-                campaign["acquisition_strategy"],
-                campaign["predictor"],
-                campaign["seed"] + len(selected),
-                min(campaign["batch_size"], campaign["budget_max"] - len(selected)),
-                campaign["budget_max"],
-            )
+            with local_span("model.update"):
+                next_decision, artifact = decide(
+                    candidates,
+                    selected,
+                    {m["candidate_id"]: m["observed_yield_pct"] for m in observations},
+                    campaign["acquisition_strategy"],
+                    campaign["predictor"],
+                    campaign["seed"] + len(selected),
+                    min(campaign["batch_size"], campaign["budget_max"] - len(selected)),
+                    campaign["budget_max"],
+                )
             next_decision["training_measurements"] = observations
             next_decision["external_training"] = None
             if artifact is not None:

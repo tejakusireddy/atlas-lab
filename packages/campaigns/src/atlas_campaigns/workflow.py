@@ -14,6 +14,7 @@ from pydantic import Field
 from atlas_campaigns.database import Connection
 from atlas_campaigns.models import Contract
 from atlas_campaigns.service import Conflict, NotFound
+from atlas_campaigns.telemetry import operation
 
 
 class Forbidden(PermissionError):
@@ -99,6 +100,7 @@ def get_batch(
     return row
 
 
+@operation("batch.propose")
 def propose_batch(
     connection: Connection,
     campaign_id: UUID,
@@ -251,6 +253,7 @@ def propose_batch(
         return get_batch(connection, campaign_id, batch_id, actor, "scientist")
 
 
+@operation("batch.decision")
 def decide_batch(
     connection: Connection,
     campaign_id: UUID,

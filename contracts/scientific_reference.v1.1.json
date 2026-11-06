@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "name": "scientific-reference-v1.1",
+  "source_evaluation_commit": "4c01f6a5f8401ea99a657ac7260f7a10ffa1642e",
+  "source_manifest_sha256": "d9fd00f15fd1f19b6b0ee397f046629aed8c7a4a97c024d597d099650c63973a",
+  "candidate_artifact_sha256": "7898561d44d92ae0ac4d9eafb8f1dd2b5c07ffe4468040c7a103ff42f889fa58",
+  "oracle_artifact_sha256": "60847f1fa46141ea8cff39dcf73fcc52ce55795d0015b95376567b724f781875",
+  "lock_sha256": "77e7950b8f673576e7c07e6ff609bf0883311c817026a4782bc9bafa1ba40d13",
+  "split_seed": 42,
+  "campaign_seed": 42,
+  "group_id": "sha256:5bacce1c7ac37b13251eafe44196d19b6c445c1f0050e75779c5cb81b5c684f0",
+  "budget": 48,
+  "batch_size": 8,
+  "expected_trajectory_hashes": {
+    "random:random_forest": "sha256:6d8c4790a8e7f807ac0c4ba44f22714f4d63ea630de047c165ac46a79858a2ef",
+    "greedy:random_forest": "sha256:17d4b1601ba72fdac4aa812634d855956f9d84abf5ebf033bdf69860cb543ec6",
+    "diversity:random_forest": "sha256:0c6710b1fdb3f5a326e2e6dc45c819e5214b4aabc45b83efba9c244e3078d792",
+    "ensemble_ucb:random_forest": "sha256:a00acf08cdc72f82f1f999373babb6ae3fa150fdb070a1590f4efe047d269bb1",
+    "ensemble_ucb:catboost": "sha256:d0007ff96d1ed4206faca6cd4ed273977899bbe6aeb4c1564bddf98fa645c8bb"
+  },
+  "scientific_code_sha256": {
+    "packages/science/src/atlas_science/decisions.py": "c14eedc83bb9b6bfd1c627b84d06ddf26ab162fa0889b81360cf7dd6a136ec43",
+    "packages/science/src/atlas_science/features.py": "dc7d0a4f63e023b23cf34f713b8d581acdbad9ecbeeb69f5b3d0996f8aed8850",
+    "packages/optimization/src/atlas_optimization/selection.py": "424023b67bb3b22724f28a33b6eb4579d40dda08bd898d498c4e9dcc8a4db244"
+  },
+  "scope": "Regression of established selection and observed-best trajectories; not a new performance estimate.",
+  "predecessor_contract_sha256": "62830daf9e9e1d6c6736dc8d3be54d4ecdbe08b3a92bd0cbeec1a8e6e0718e94",
+  "revision_reason": "Add PyJWT 2.15.1 for Cognito verification; retain all existing scientific dependencies, source hashes and trajectory goldens."
+}

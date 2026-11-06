@@ -1,4 +1,5 @@
-.PHONY: setup lint format typecheck unit science check audit db-up migrate integration
+.PHONY: setup lint format typecheck unit science check audit db-up migrate integration \
+        sim-image sim workflow reference-workflow runtime-image isolation faults
 setup:
 	uv sync --locked --all-packages
 lint:
@@ -34,3 +35,11 @@ workflow:
 
 reference-workflow:
 	ATLAS_TEST_DATABASE_URL=$${ATLAS_TEST_DATABASE_URL:-postgresql://atlas:atlas-local-only@127.0.0.1:55432/atlas} uv run --locked pytest tests/reference_workflow
+
+runtime-image:
+	docker compose -f infra/compose/compose.yaml -f infra/compose/isolated.yaml build api
+isolation:
+	uv run --locked pytest tests/isolation
+
+faults:
+	ATLAS_TEST_DATABASE_URL=$${ATLAS_TEST_DATABASE_URL:-postgresql://atlas:atlas-local-only@127.0.0.1:55432/atlas} uv run --locked pytest tests/faults

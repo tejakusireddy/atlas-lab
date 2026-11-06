@@ -2,6 +2,8 @@
 
 import argparse
 import json
+import stat
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -14,7 +16,9 @@ from atlas_instrument_gateway.spec import RunPlan
 from psycopg.types.json import Jsonb
 
 from atlas_campaigns.database import Connection, connect
+from atlas_campaigns.secrets import ConfigurationError, production_profile
 from atlas_campaigns.service import Conflict, NotFound
+from atlas_campaigns.telemetry import operation, resource_span
 from atlas_campaigns.workflow import prior_mutation, record_mutation
 
 TRANSITIONS = {
@@ -103,6 +107,7 @@ def validate_approval(connection: Connection, run: dict[str, Any], spec: RunPlan
         raise Conflict("Missing, expired, or mismatched independent approval")
 
 
+@operation("lab.dispatch")
 def enqueue_simulation(
     connection: Connection,
     run_id: UUID,
@@ -197,14 +202,20 @@ def record_receipt(connection: Connection, run: dict[str, Any], receipt: dict[st
     )
 
 
-def execute_next(connection: Connection, root: Path) -> dict[str, Any] | None:
+def execute_next(
+    connection: Connection,
+    root: Path,
+    *,
+    simulator: Callable[[RunPlan, Path], dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
     claimed = claim_next(connection, root)
     if claimed is None:
         return None
     try:
-        result = simulate_plan(
-            RunPlan.model_validate(claimed["run_spec"]), Path(claimed["artifact_directory"])
-        )
+        with resource_span(connection, "lab.simulate", run_id=claimed["id"]):
+            result = (simulator or simulate_plan)(
+                RunPlan.model_validate(claimed["run_spec"]), Path(claimed["artifact_directory"])
+            )
         status = result["status"]
     except Exception:
         # Any exception after claim is conservative: execution may have occurred.
@@ -232,6 +243,55 @@ def recover_expired(connection: Connection) -> int:
         return len(runs)
 
 
+def request_reconciliation(
+    connection: Connection,
+    run_id: UUID,
+    expected_version: int,
+    actor: str,
+    key: str,
+    request_id: UUID,
+    trace_id: str,
+) -> dict[str, Any]:
+    """Record reviewer intent; the API never reads the broker's private artifacts."""
+    request_hash = content_hash({"run_id": str(run_id), "expected_version": expected_version})
+    with connection.transaction():
+        previous = prior_mutation(connection, actor, "run.reconcile.request", key, request_hash)
+        if previous:
+            return get_run(connection, previous, actor, "reviewer")
+        run = connection.execute(
+            "SELECT * FROM experiment_runs WHERE id=%s FOR UPDATE", (run_id,)
+        ).fetchone()
+        if run is None:
+            raise NotFound("Run not found")
+        if run["status"] != "EXECUTION_UNKNOWN" or run["version"] != expected_version:
+            raise Conflict("Run is not at the expected unknown version")
+        pending = connection.execute(
+            """SELECT q.id FROM reconciliation_requests q
+            LEFT JOIN reconciliation_results r ON r.request_id=q.id
+            WHERE q.run_id=%s AND r.request_id IS NULL""",
+            (run_id,),
+        ).fetchone()
+        if pending is None:
+            connection.execute(
+                """INSERT INTO reconciliation_requests
+                (id,run_id,expected_version,actor_id,request_id,trace_id)
+                VALUES (%s,%s,%s,%s,%s,%s)""",
+                (uuid4(), run_id, expected_version, actor, request_id, trace_id),
+            )
+        record_mutation(
+            connection,
+            actor,
+            "run.reconcile.request",
+            key,
+            request_hash,
+            run_id,
+            request_id,
+            trace_id,
+        )
+        return get_run(connection, run_id, actor, "reviewer")
+
+
+@operation("lab.reconcile")
 def reconcile(
     connection: Connection,
     run_id: UUID,
@@ -240,6 +300,8 @@ def reconcile(
     key: str,
     request_id: UUID,
     trace_id: str,
+    *,
+    artifact_root: Path | None = None,
 ) -> dict[str, Any]:
     request_hash = content_hash({"run_id": str(run_id), "expected_version": expected_version})
     with connection.transaction():
@@ -253,11 +315,28 @@ def reconcile(
             raise NotFound("Run not found")
         if run["status"] != "EXECUTION_UNKNOWN" or run["version"] != expected_version:
             raise Conflict("Run is not at the expected unknown version")
+        if not isinstance(run["artifact_directory"], str):
+            raise Conflict("Run has no broker artifact directory")
         receipt_path = Path(run["artifact_directory"]) / "receipt/receipt.json"
+        if artifact_root is not None:
+            expected = artifact_root / str(run_id)
+            if (
+                Path(run["artifact_directory"]) != expected
+                or expected.resolve() != expected
+                or not receipt_path.resolve().is_relative_to(expected)
+            ):
+                raise Conflict("Receipt path is outside the broker artifact boundary")
         if not receipt_path.exists():
             raise Conflict("No durable vendor receipt; outcome remains unknown")
         try:
-            receipt = json.loads(receipt_path.read_text())
+            metadata = receipt_path.stat()
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 65536:
+                raise ValueError("Receipt must be a bounded regular file")
+            with receipt_path.open("rb") as source:
+                payload = source.read(65537)
+            if len(payload) > 65536:
+                raise ValueError("Receipt exceeds supported size")
+            receipt = json.loads(payload)
         except (OSError, ValueError) as error:
             raise Conflict("Durable receipt is unreadable; outcome remains unknown") from error
         if not isinstance(receipt, dict):
@@ -278,6 +357,8 @@ def reconcile(
 
 
 def main() -> None:
+    if production_profile():
+        raise ConfigurationError("Production dispatch requires atlas_campaigns.broker")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--artifacts", type=Path, default=Path("artifacts/runs"))
     parser.add_argument("--recover-expired", action="store_true")

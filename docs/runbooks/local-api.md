@@ -1,5 +1,7 @@
 # Local campaign API
 
+## Host development profile
+
 From the repository root:
 
 ```sh
@@ -10,19 +12,33 @@ uv run --locked atlas-register data/snapshots/doyle2018-v1
 ATLAS_LOCAL_DEMO_AUTH=true uv run --locked atlas-api
 ```
 
-The API binds to `127.0.0.1:8000`; interactive OpenAPI documentation is at `/docs`. Import the dataset first if the snapshot does not exist. Registration verifies candidate and quality-report checksums, source provenance, uniqueness, and eligible-group counts. It registers only outcome-free metadata; it does not read oracle measurements. Snapshot identity is bound to the manifest checksum, and repeat registration is idempotent.
+The host process binds to `127.0.0.1:8000`; interactive OpenAPI documentation is at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs). Import the dataset first if the snapshot does not exist. Registration verifies candidate and quality-report checksums, source provenance, uniqueness, and eligible-group counts. It registers only outcome-free metadata; it does not read oracle measurements. Snapshot identity is bound to the manifest checksum, and repeat registration is idempotent.
+
+## Isolated Docker profile
+
+Build and provision the private volume using the [isolation runbook](oracle-isolation.md), then start the API from the repository root:
+
+```sh
+docker compose -f infra/compose/compose.yaml -f infra/compose/isolated.yaml up -d api
+```
+
+Docker publishes `127.0.0.1:8001` on the host and forwards to port 8000 inside the container. Open [http://127.0.0.1:8001/docs](http://127.0.0.1:8001/docs) for this profile. Both profiles expose `/health/ready`. Use the port for the process you started; the host development profile does not inherit the container's oracle mount/UID restrictions. The isolated profile currently enables the same local demonstration identities.
+
+## Authentication and requests
 
 The explicitly enabled local identity profile recognizes `Bearer local-scientist`, `Bearer local-reviewer`, and `Bearer local-viewer`. These are demonstration identities, not secrets or production authentication. Keep the listener on loopback. Without `ATLAS_LOCAL_DEMO_AUTH=true`, authenticated routes return 503 until a production identity provider is implemented.
 
 ```sh
-curl -H 'Authorization: Bearer local-scientist' http://127.0.0.1:8000/v1/datasets
+# Select 8000 for host development or 8001 for the isolated runtime.
+ATLAS_API_URL=http://127.0.0.1:8000
+curl -H 'Authorization: Bearer local-scientist' "$ATLAS_API_URL/v1/datasets"
 ```
 
 Use a returned snapshot/group pair in `POST /v1/campaigns`, with `Authorization: Bearer local-scientist` and a unique `Idempotency-Key`. The request accepts `dataset_snapshot_id`, `campaign_group_id`, `seed`, an observed-yield maximization objective, and a budget of at most 48 unique experiments with batches of at most eight. Only historical replay with protocol simulation is accepted as the requested mode.
 
 A successful response contains a durable `DRAFT` campaign. `GET /v1/campaigns` supports `limit` and `offset`; `GET /v1/campaigns/{id}` is owner-scoped. Repeating a creation request with the same identity/key/body returns the same campaign. Changing the body under that key returns 409. Authentication failures return 401, role failures 403, missing/other-owner resources 404, and invalid commands 422.
 
-Responses include `data`, `errors`, and `meta` with request ID, correlation trace ID, and schema version. Trace IDs currently correlate API/audit records; distributed tracing export is not yet implemented. `/health/live`, `/health/ready`, and `/v1/system/capabilities` expose operational status. Capabilities explicitly distinguish unimplemented simulation/oracle features and unconfigured NVIDIA providers.
+Responses include `data`, `errors`, and `meta` with request ID, correlation trace ID, and schema version. Trace IDs currently correlate API/audit records; OpenTelemetry campaign traces can be enabled separately; see the [observability runbook](observability.md). `/health/live`, `/health/ready`, and `/v1/system/capabilities` expose operational status. Capabilities explicitly distinguish unimplemented simulation/oracle features and unconfigured NVIDIA providers.
 
 The API supports draft creation, planning, independent review, and queued simulation. Historical measurement release is available through a separate worker; reports remain pending.
 

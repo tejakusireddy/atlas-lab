@@ -12,7 +12,7 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 
 | Deliverable | Status |
 | --- | --- |
-| Python tooling and CI configuration | Available; hosted CI pending first push |
+| Python tooling and CI configuration | Local checks pass; hosted CI verified for the published main revision below |
 | Doyle dataset import and provenance | Available; 4,312 candidates across 15 eligible groups |
 | Group splits and finite-pool selection | Available with leakage, uniqueness, and budget checks |
 | CPU predictive baselines | Random Forest and CatBoost evaluation available |
@@ -21,9 +21,12 @@ The reference campaign targets Buchwald–Hartwig reaction conditions for a held
 | Campaign HTTP API | Dataset registration, drafts, immutable plans, and independent approvals |
 | Simulation work orders | Validated contract, deterministic compiler, and tested Opentrons worker |
 | Approved simulation and historical replay loop | Reproducible six-batch HTTP workflow verified twice against real source data and simulator |
-| Durable execution, reconciliation, and telemetry | Single-attempt dispatch and receipt reconciliation available; tracing export pending |
+| Durable execution, reconciliation, and telemetry | Process-loss recovery probes and opt-in OpenTelemetry export verified |
+| Production identity, secrets, database roles, and constrained dispatch | Open rollout blockers; Cognito verification, database grants and constrained broker implemented; AWS rollout pending; [acceptance requirements](docs/runbooks/production-rollout.md) |
 | NVIDIA integrations and model lifecycle evaluation | Planned — G3 |
 | Research evaluation and demonstration artifacts | Planned — G4 |
+
+Hosted CI passed for `main` commit `36b5f7d4ddb49cde1e49f2afe14f747ba95d4cfe` on 2026-11-05 ([verified run](https://github.com/tejakusireddy/atlas-lab/actions/runs/42071960495)). The newer G2 additions through local commit `1781a8b` have local acceptance evidence; hosted verification of those additions is pending their push. CI success applies to the tested commit, not automatically to later local work.
 
 ## Architecture
 
@@ -39,6 +42,8 @@ make migrate
 make integration
 ```
 
+The production identity path verifies Cognito access tokens and rejects local demonstration identities. Production credential configuration uses a reloadable secret file and rejects development defaults. Explicit application/release/dispatch database grants have PostgreSQL allow/deny coverage. The production broker uses a dedicated Linux/rootless worker; deployment-specific AWS configuration is maintained outside the repository; see the [rollout requirements](docs/runbooks/production-rollout.md#database-credential-interface).
+
 Requires Docker Desktop. See the [local database runbook](docs/runbooks/local-database.md) for connection settings and test isolation.
 
 ## Local API
@@ -50,7 +55,20 @@ uv run --locked atlas-register data/snapshots/doyle2018-v1
 ATLAS_LOCAL_DEMO_AUTH=true uv run --locked atlas-api
 ```
 
-The API listens on loopback port 8000. See the [local API runbook](docs/runbooks/local-api.md) for authentication, requests, and implemented capabilities.
+These commands start the host development profile. The two supported local profiles use different host ports:
+
+| Profile | Base URL | Interactive API documentation |
+| --- | --- | --- |
+| Host development (`atlas-api`) | `http://127.0.0.1:8000` | [Host API docs](http://127.0.0.1:8000/docs) |
+| Isolated Docker runtime | `http://127.0.0.1:8001` | [Isolated API docs](http://127.0.0.1:8001/docs) |
+
+For the isolated profile, build and provision it using the [isolation runbook](docs/runbooks/oracle-isolation.md), then start the API:
+
+```sh
+docker compose -f infra/compose/compose.yaml -f infra/compose/isolated.yaml up -d api
+```
+
+Docker maps host loopback port 8001 to container port 8000. The host development process does not inherit the container's oracle isolation. See the [local API runbook](docs/runbooks/local-api.md) for authentication, requests, and profile selection. The API exposes `/docs` and `/health/ready`; the React workbench remains planned.
 
 ## Dataset import
 
@@ -84,9 +102,9 @@ The first Flex profile compiles validated water-placeholder transfers from immut
 
 After importing the pinned Doyle snapshot and building the simulator image, run `make reference-workflow`. The test creates two isolated campaigns through the HTTP API, each with six independent-role approval gates, six real Docker simulations, and 48 unique source-backed observations. It compares candidate/outcome trajectories for the same seed, verifies receipt and snapshot hashes, rejects stale snapshot references and exhausted budgets, and guards oracle-file access outside the release worker. Integration tests also exercise concurrent completion/proposal requests and failure before commit.
 
-The seeded-random selector remains the reference. Greedy, diversity, and ensemble-UCB workflows are verified alongside it; model-backed runs use Random Forest or CatBoost. See [live acquisition](docs/reproducibility/live-acquisition.md). LangGraph and NVIDIA integration work is deferred until this deterministic reference is established and retained as a regression gate. CI includes the reference test; hosted results remain pending a push.
+The seeded-random selector remains the reference. Greedy, diversity, and ensemble-UCB workflows are verified alongside it; model-backed runs use Random Forest or CatBoost. See [live acquisition](docs/reproducibility/live-acquisition.md). LangGraph and NVIDIA integration work is deferred until this deterministic reference is established and retained as a regression gate. CI includes the reference test. Hosted validation of the newer G2 gates is pending; the verified published revision is recorded in Project status.
 
-Paired live-engine evaluation is available for both predictors: four strategies, five seeds, and three held-out groups. See [measured results and limitations](docs/reproducibility/live-acquisition-results.md). The profile currently uses campaign-local released labels only.
+Paired live-engine evaluation is available for both predictors: four strategies, five seeds, and three held-out groups. See the [original results](docs/reproducibility/live-acquisition-results.md), [twelve-group exploratory expansion](docs/reproducibility/expanded-acquisition-results.md), and [frozen scientific reference](docs/reproducibility/scientific-reference.md). The profile currently uses campaign-local released labels only.
 
 ## NVIDIA delivery scope
 
@@ -127,3 +145,13 @@ The public reference profile simulates representative nonhazardous liquid handli
 Repository code is licensed under [Apache-2.0](LICENSE). External datasets, model weights, and vendor assets retain their respective licenses; their access and redistribution terms must be verified before import or distribution.
 
 Historical outcomes are released by a separate worker after successful simulation. See the [historical results runbook](docs/runbooks/historical-results.md) for QC, provenance, and local isolation limits.
+
+The [isolated runtime](docs/runbooks/oracle-isolation.md) enforces private oracle mounts and UID permissions. See [recovery evidence](docs/runbooks/execution-recovery.md) and [campaign tracing](docs/runbooks/observability.md) for tested guarantees and deployment boundaries.
+
+The [production security implementation record](docs/runbooks/production-security-acceptance.md) separates locally verified controls from pending AWS and rootless-worker deployment acceptance.
+
+The [G2 acceptance record](docs/runbooks/g2-acceptance.md) lists verified isolation, recovery, tracing, and scientific gates alongside remaining production rollout requirements.
+
+## Molecular representation evaluation
+
+The [MolMIM evaluation protocol](docs/reproducibility/molmim-evaluation.md) defines paired RDKit/MolMIM/combined comparisons and an outcome-free input inventory. Provider execution and scientific results are **not run**; the current campaign reference continues to use RDKit. NVIDIA execution remains opt-in after environment access and a compute budget are available.

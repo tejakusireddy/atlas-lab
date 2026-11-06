@@ -3,7 +3,7 @@ name = "atlas-campaigns"
 version = "0.1.0"
 requires-python = ">=3.11,<3.12"
 license = "Apache-2.0"
-dependencies = ["atlas-science", "atlas-domain", "atlas-instrument-gateway", "atlas-optimization", "pydantic>=2.11,<3", "psycopg[binary]>=3.2"]
+dependencies = ["opentelemetry-api>=1.45,<2", "opentelemetry-sdk>=1.45,<2", "opentelemetry-exporter-otlp-proto-http>=1.45,<2", "atlas-science", "atlas-domain", "atlas-instrument-gateway", "atlas-optimization", "pydantic>=2.11,<3", "psycopg[binary]>=3.2"]
 
 [project.scripts]
 atlas-migrate = "atlas_campaigns.database:main"

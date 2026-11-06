@@ -12,13 +12,24 @@ from atlas_instrument_gateway.spec import RunPlan
 IMAGE = "atlas-opentrons-sim:10.1.0"
 
 
-def simulate_plan(plan: RunPlan, output: Path, timeout: float = 120) -> dict[str, Any]:
+def simulate_plan(
+    plan: RunPlan,
+    output: Path,
+    timeout: float = 120,
+    *,
+    image: str = IMAGE,
+    docker_host: str | None = None,
+    container_name: str | None = None,
+) -> dict[str, Any]:
     artifact = compile_protocol(plan)
     if output.exists():
         raise FileExistsError("Refusing to overwrite an existing simulation attempt")
+    docker = ["docker"] if docker_host is None else ["docker", "--host", docker_host]
     image_id = subprocess.check_output(
-        ["docker", "image", "inspect", IMAGE, "--format", "{{.Id}}"], text=True, timeout=15
+        [*docker, "image", "inspect", image, "--format", "{{.Id}}"], text=True, timeout=15
     ).strip()
+    if image.startswith("sha256:") and image_id != image:
+        raise ValueError("Simulator image does not match configured identity")
     output.mkdir(parents=True)
     (output / "protocol.py").write_text(artifact.source)
     (output / "run_spec.json").write_text(plan.model_dump_json(indent=2) + "\n")
@@ -26,11 +37,11 @@ def simulate_plan(plan: RunPlan, output: Path, timeout: float = 120) -> dict[str
     receipt_directory.mkdir()
     receipt_directory.chmod(0o777)  # Writable only output mount for the non-root container UID.
     command = [
-        "docker",
+        *docker,
         "run",
         "--rm",
         "--name",
-        f"atlas-sim-{plan.run_id}",
+        container_name or f"atlas-sim-{plan.run_id}",
         "--network=none",
         "--read-only",
         "--cap-drop=ALL",
@@ -51,6 +62,7 @@ def simulate_plan(plan: RunPlan, output: Path, timeout: float = 120) -> dict[str
         "plan_hash": artifact.plan_hash,
         "protocol_hash": artifact.protocol_hash,
         "image_id": image_id,
+        "container_name": container_name or f"atlas-sim-{plan.run_id}",
         "execution_mode": "simulation",
         "status": "EXECUTION_UNKNOWN",
     }

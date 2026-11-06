@@ -8,6 +8,7 @@ from psycopg.types.json import Jsonb
 
 from atlas_campaigns.database import Connection
 from atlas_campaigns.models import Campaign, CreateCampaign
+from atlas_campaigns.telemetry import operation, remember_campaign
 
 
 class Conflict(ValueError):
@@ -18,6 +19,7 @@ class NotFound(ValueError):
     pass
 
 
+@operation("campaign.create")
 def create_campaign(
     connection: Connection,
     command: CreateCampaign,
@@ -95,6 +97,7 @@ def create_campaign(
             VALUES (%s,%s,0,'campaign.created',%s)""",
             (uuid4(), campaign_id, Jsonb({"campaign_id": str(campaign_id), "trace_id": trace_id})),
         )
+        remember_campaign(connection, campaign_id)
         return Campaign.model_validate(row)
 
 
