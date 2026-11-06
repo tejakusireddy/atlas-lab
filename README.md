@@ -86,7 +86,7 @@ After importing the pinned Doyle snapshot and building the simulator image, run 
 
 The seeded-random selector remains the reference. Greedy, diversity, and ensemble-UCB workflows are verified alongside it; model-backed runs use Random Forest or CatBoost. See [live acquisition](docs/reproducibility/live-acquisition.md). LangGraph and NVIDIA integration work is deferred until this deterministic reference is established and retained as a regression gate. CI includes the reference test; hosted results remain pending a push.
 
-Paired live-engine evaluation is available for both predictors: four strategies, five seeds, and three held-out groups. See [measured results and limitations](docs/reproducibility/live-acquisition-results.md). The profile currently uses campaign-local released labels only.
+Paired live-engine evaluation is available for both predictors: four strategies, five seeds, and three held-out groups. See the [original results](docs/reproducibility/live-acquisition-results.md), [twelve-group exploratory expansion](docs/reproducibility/expanded-acquisition-results.md), and [frozen scientific reference](docs/reproducibility/scientific-reference.md). The profile currently uses campaign-local released labels only.
 
 ## NVIDIA delivery scope
 
@@ -129,3 +129,5 @@ Repository code is licensed under [Apache-2.0](LICENSE). External datasets, mode
 Historical outcomes are released by a separate worker after successful simulation. See the [historical results runbook](docs/runbooks/historical-results.md) for QC, provenance, and local isolation limits.
 
 The [isolated runtime](docs/runbooks/oracle-isolation.md) enforces private oracle mounts and UID permissions. See [recovery evidence](docs/runbooks/execution-recovery.md) and [campaign tracing](docs/runbooks/observability.md) for tested guarantees and deployment boundaries.
+
+The [G2 acceptance record](docs/runbooks/g2-acceptance.md) lists verified isolation, recovery, tracing, and scientific gates alongside remaining production rollout requirements.

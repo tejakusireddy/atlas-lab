@@ -22,3 +22,5 @@ uv run --locked python -m atlas_science.live_benchmark --cohort exploratory_deve
 ```
 
 The curated BH-HTE-OOD source is a candidate for a later source-independent cohort, but its catalyst/solvent schema differs from this reference's role contract and includes the Doyle rows. Before adding it, verify original-record provenance and data licensing, normalize condition identities including additives, and audit cross-source duplicates. Its [pinned README](https://github.com/schwallergroup/bh-hte-ood/blob/3a44e398d9fed3f08cf396f1153be2960193f581/README.md) describes the source-aware benchmark and shared sources. Existing derived product features and outcome labels must never become planner inputs. It is not enabled as training data or benchmark evidence here.
+
+The [completed expanded results](expanded-acquisition-results.md) and [external-source census](external-cohort-census.md) retain the measured outcomes and source-eligibility boundaries.

@@ -1,4 +1,5 @@
-.PHONY: setup lint format typecheck unit science check audit db-up migrate integration
+.PHONY: setup lint format typecheck unit science check audit db-up migrate integration \
+        sim-image sim workflow reference-workflow runtime-image isolation faults
 setup:
 	uv sync --locked --all-packages
 lint:
