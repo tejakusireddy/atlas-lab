@@ -1,6 +1,7 @@
 """Reference milestone: real source, HTTP review, vendor simulation, and replay."""
 
 import hashlib
+import json
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -68,8 +69,18 @@ def test_reproducible_six_batch_reference(
         Candidate.model_validate_json(line)
         for line in (snapshot / "candidates.jsonl").read_text().splitlines()
     ]
+    reference = json.loads(Path("contracts/scientific_reference.v1.json").read_text())
+    assert (
+        hashlib.sha256((snapshot / "source_manifest.json").read_bytes()).hexdigest()
+        == reference["source_manifest_sha256"]
+    )
+    assert (
+        hashlib.sha256((snapshot / "candidates.jsonl").read_bytes()).hexdigest()
+        == reference["candidate_artifact_sha256"]
+    )
     split = create_split(candidates, seed=42)
     group = next(c.group_id for c in candidates if c.candidate_id == split.campaign_ids[0])
+    assert group == reference["group_id"]
     assert not {c.candidate_id for c in candidates if c.group_id == group} & set(split.train_ids)
     monkeypatch.setenv("ATLAS_LOCAL_DEMO_AUTH", "true")
     app = create_app()
@@ -311,6 +322,20 @@ def test_reproducible_six_batch_reference(
                 headers={**scientist, "Idempotency-Key": f"{repeat}-exhausted"},
             )
             assert exhausted.status_code == 409
+            frozen_view: dict[str, Any] = {
+                "batches": [
+                    {
+                        "selected": row["selected"],
+                        "best": row["best"],
+                        "acquisition_version": row["acquisition_version"],
+                    }
+                    for row in trajectory
+                ]
+            }
+            assert (
+                content_hash(frozen_view)
+                == reference["expected_trajectory_hashes"][strategy + ":" + predictor]
+            )
             trajectories.append(trajectory)
     assert oracle_accesses == 12
     assert trajectories[0] == trajectories[1]
