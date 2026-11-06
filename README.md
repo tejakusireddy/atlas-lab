@@ -151,3 +151,7 @@ The [isolated runtime](docs/runbooks/oracle-isolation.md) enforces private oracl
 The [production security implementation record](docs/runbooks/production-security-acceptance.md) separates locally verified controls from pending AWS and rootless-worker deployment acceptance.
 
 The [G2 acceptance record](docs/runbooks/g2-acceptance.md) lists verified isolation, recovery, tracing, and scientific gates alongside remaining production rollout requirements.
+
+## Molecular representation evaluation
+
+The [MolMIM evaluation protocol](docs/reproducibility/molmim-evaluation.md) defines paired RDKit/MolMIM/combined comparisons and an outcome-free input inventory. Provider execution and scientific results are **not run**; the current campaign reference continues to use RDKit. NVIDIA execution remains opt-in after environment access and a compute budget are available.
