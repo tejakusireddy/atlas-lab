@@ -42,7 +42,7 @@ make migrate
 make integration
 ```
 
-Production credential configuration uses a reloadable secret file and rejects development defaults; see the [rollout requirements](docs/runbooks/production-rollout.md#database-credential-interface).
+Production credential configuration uses a reloadable secret file and rejects development defaults. Explicit application/release/dispatch database grants have PostgreSQL allow/deny coverage; see the [rollout requirements](docs/runbooks/production-rollout.md#database-credential-interface).
 
 Requires Docker Desktop. See the [local database runbook](docs/runbooks/local-database.md) for connection settings and test isolation.
 
