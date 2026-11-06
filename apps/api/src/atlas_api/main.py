@@ -1,9 +1,7 @@
-"""Local HTTP application; all scientific mutations remain in domain services."""
+"""HTTP application; all scientific mutations remain in domain services."""
 
-import os
 from collections.abc import Iterator
-from dataclasses import dataclass
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 import psycopg
@@ -12,6 +10,7 @@ from atlas_campaigns.analysis import analyze
 from atlas_campaigns.database import Connection, connect
 from atlas_campaigns.execution import enqueue_simulation, get_run, reconcile
 from atlas_campaigns.models import CreateCampaign
+from atlas_campaigns.secrets import ConfigurationError, production_profile
 from atlas_campaigns.service import (
     Conflict,
     NotFound,
@@ -35,31 +34,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
-
-@dataclass(frozen=True)
-class Principal:
-    actor: str
-    role: Literal["scientist", "reviewer", "viewer"]
-
-
-LOCAL_IDENTITIES = {
-    "local-scientist": Principal("local-scientist", "scientist"),
-    "local-reviewer": Principal("local-reviewer", "reviewer"),
-    "local-viewer": Principal("local-viewer", "viewer"),
-}
-
-
-def principal(authorization: Annotated[str | None, Header()] = None) -> Principal:
-    if os.environ.get("ATLAS_LOCAL_DEMO_AUTH") != "true":
-        raise HTTPException(
-            503, "Local authentication is disabled; no production identity provider configured"
-        )
-    identity = LOCAL_IDENTITIES.get((authorization or "").removeprefix("Bearer "))
-    if not authorization or not authorization.startswith("Bearer ") or identity is None:
-        raise HTTPException(
-            401, "Valid bearer credentials are required", headers={"WWW-Authenticate": "Bearer"}
-        )
-    return identity
+from atlas_api.auth import Principal, authentication_profile, principal
 
 
 def database() -> Iterator[Connection]:
@@ -133,6 +108,21 @@ def create_app() -> FastAPI:
             status_code=404,
         )
 
+    @app.exception_handler(ConfigurationError)
+    async def configuration_error(request: Request, error: ConfigurationError) -> JSONResponse:
+        return JSONResponse(
+            envelope(
+                request,
+                errors=[
+                    {
+                        "code": "configuration_unavailable",
+                        "message": "Service configuration is unavailable",
+                    }
+                ],
+            ),
+            status_code=503,
+        )
+
     @app.exception_handler(psycopg.OperationalError)
     async def unavailable(request: Request, error: psycopg.OperationalError) -> JSONResponse:
         return JSONResponse(
@@ -149,6 +139,12 @@ def create_app() -> FastAPI:
 
     @app.get("/health/ready")
     def ready(request: Request, connection: Database) -> dict[str, Any]:
+        authentication_profile()
+        if production_profile():
+            role = connection.execute("""SELECT rolsuper,rolcreatedb,rolcreaterole,
+                rolreplication,rolbypassrls FROM pg_roles WHERE rolname=current_user""").fetchone()
+            if role is None or any(role.values()):
+                raise ConfigurationError("Runtime database role is privileged")
         connection.execute("SELECT 1 FROM schema_migrations LIMIT 1")
         return envelope(request, {"status": "ready"})
 
@@ -163,9 +159,7 @@ def create_app() -> FastAPI:
                 "protocol_simulator": "opentrons_10.1.0_worker",
                 "oracle_replay": "separate_checksum_verified_worker",
                 "nvidia_providers": "not_configured",
-                "auth_profile": "local_demo"
-                if os.environ.get("ATLAS_LOCAL_DEMO_AUTH") == "true"
-                else "disabled",
+                "auth_profile": authentication_profile(),
             },
         )
 
@@ -177,7 +171,7 @@ def create_app() -> FastAPI:
         connection: Database,
         idempotency_key: IdempotencyKey,
     ) -> dict[str, Any]:
-        if identity.role != "scientist":
+        if not identity.has_role("scientist"):
             raise HTTPException(403, "Scientist role required")
         result = create_campaign(
             connection,
@@ -230,7 +224,7 @@ def create_app() -> FastAPI:
         connection: Database,
         idempotency_key: IdempotencyKey,
     ) -> dict[str, Any]:
-        if identity.role != "scientist":
+        if not identity.has_role("scientist"):
             raise HTTPException(403, "Scientist role required")
         return envelope(
             request,
@@ -281,7 +275,7 @@ def create_app() -> FastAPI:
         connection: Database,
         idempotency_key: IdempotencyKey,
     ) -> dict[str, Any]:
-        if identity.role != "scientist":
+        if not identity.has_role("scientist"):
             raise HTTPException(403, "Scientist role required")
         return envelope(
             request,
@@ -362,7 +356,7 @@ def create_app() -> FastAPI:
 
     @app.get("/v1/approvals/pending")
     def pending(request: Request, identity: Identity, connection: Database) -> dict[str, Any]:
-        if identity.role != "reviewer":
+        if not identity.has_role("reviewer"):
             raise HTTPException(403, "Reviewer role required")
         return envelope(
             request,
@@ -383,7 +377,7 @@ def create_app() -> FastAPI:
         connection: Database,
         idempotency_key: IdempotencyKey,
     ) -> dict[str, Any]:
-        if identity.role != "scientist":
+        if not identity.has_role("scientist"):
             raise HTTPException(403, "Scientist role required")
         return envelope(
             request,
@@ -427,7 +421,7 @@ def create_app() -> FastAPI:
         connection: Database,
         idempotency_key: IdempotencyKey,
     ) -> dict[str, Any]:
-        if identity.role != "reviewer":
+        if not identity.has_role("reviewer"):
             raise HTTPException(403, "Reviewer role required")
         return envelope(
             request,

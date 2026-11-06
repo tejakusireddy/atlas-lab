@@ -158,6 +158,7 @@ def apply_runtime_grants(connection: Connection, schema: str, roles: Mapping[str
                     "model_artifacts",
                     "mutation_keys",
                     "audit_events",
+                    "schema_migrations",
                 ]
             elif profile == "release":
                 readable += ["measurements"]

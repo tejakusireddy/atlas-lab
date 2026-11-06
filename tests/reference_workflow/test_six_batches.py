@@ -69,7 +69,7 @@ def test_reproducible_six_batch_reference(
         Candidate.model_validate_json(line)
         for line in (snapshot / "candidates.jsonl").read_text().splitlines()
     ]
-    reference = json.loads(Path("contracts/scientific_reference.v1.json").read_text())
+    reference = json.loads(Path("contracts/scientific_reference.v1.1.json").read_text())
     assert (
         hashlib.sha256((snapshot / "source_manifest.json").read_bytes()).hexdigest()
         == reference["source_manifest_sha256"]
