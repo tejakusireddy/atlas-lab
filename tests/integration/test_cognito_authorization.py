@@ -1,6 +1,7 @@
 import io
 import json
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
@@ -9,6 +10,7 @@ from atlas_api.auth import verifier
 from atlas_api.main import create_app
 from atlas_api.main import database as database_dependency
 from atlas_campaigns.database import Connection
+from atlas_campaigns.execution import claim_next, transition
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 from jwt.algorithms import RSAAlgorithm
@@ -19,7 +21,7 @@ pytestmark = pytest.mark.integration
 
 
 def test_signed_cognito_tokens_preserve_ownership_and_independent_review(
-    database: Connection, monkeypatch: pytest.MonkeyPatch
+    database: Connection, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("ATLAS_RUNTIME_PROFILE", "production")
     monkeypatch.delenv("ATLAS_LOCAL_DEMO_AUTH", raising=False)
@@ -81,6 +83,28 @@ def test_signed_cognito_tokens_preserve_ownership_and_independent_review(
                 "/v1/campaigns", headers={"Authorization": "Bearer local-scientist"}
             ).status_code
             == 401
+        )
+        run_id = batch["run_id"]
+        submitted = client.post(
+            f"/v1/runs/{run_id}/simulate",
+            json={"expected_version": 0},
+            headers={**owner, "Idempotency-Key": "simulate"},
+        )
+        assert submitted.status_code == 202
+        claimed = claim_next(database, tmp_path)
+        assert claimed is not None
+        unknown = transition(database, claimed, "EXECUTION_UNKNOWN", "trace")
+        queued = client.post(
+            f"/v1/runs/{run_id}/reconcile",
+            json={"expected_version": unknown["version"]},
+            headers=reviewer,
+        )
+        assert queued.status_code == 202 and queued.json()["data"]["status"] == "EXECUTION_UNKNOWN"
+        pending = client.get(f"/v1/runs/{run_id}/reconciliation-requests", headers=reviewer)
+        assert pending.json()["data"][0]["status"] == "PENDING"
+        assert (
+            client.get(f"/v1/runs/{run_id}/reconciliation-requests", headers=viewer).status_code
+            == 403
         )
         # A privileged migration connection cannot qualify as a production API runtime role.
         assert client.get("/health/ready").status_code == 503

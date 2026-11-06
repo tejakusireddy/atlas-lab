@@ -1,6 +1,7 @@
 """Bounded, reloadable credentials supplied through deployment-owned files."""
 
 import os
+import stat
 from pathlib import Path
 
 
@@ -18,6 +19,9 @@ def production_profile() -> bool:
 def read_secret_file(filename: str) -> str:
     """Read on each use so an atomic file replacement rotates future connections."""
     try:
+        metadata = Path(filename).stat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 4096:
+            raise ConfigurationError("Secret must be a bounded regular file")
         with Path(filename).open("rb") as source:
             value = source.read(4097)
         if len(value) > 4096:

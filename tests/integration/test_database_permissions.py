@@ -127,6 +127,11 @@ def test_runtime_permission_matrix(runtime_roles: dict[str, Connection]) -> None
     )
     for profile, session in runtime_roles.items():
         statements = list(denied_for_all)
+        if profile != "dispatch":
+            statements += [
+                "INSERT INTO execution_receipts DEFAULT VALUES",
+                "INSERT INTO reconciliation_results DEFAULT VALUES",
+            ]
         if profile != "release":
             statements += ["INSERT INTO measurements DEFAULT VALUES"]
         if profile != "application":

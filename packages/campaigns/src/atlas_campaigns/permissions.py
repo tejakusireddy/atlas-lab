@@ -10,6 +10,7 @@ from collections.abc import Mapping
 from psycopg import sql
 
 from atlas_campaigns.database import Connection, connect, migrate
+from atlas_campaigns.secrets import ConfigurationError
 
 READ_TABLES = (
     "dataset_snapshots",
@@ -39,10 +40,17 @@ INSERTS = {
         "campaign_trace_contexts",
         "campaign_analyses",
         "model_artifacts",
-        "execution_receipts",
+        "reconciliation_requests",
     ),
     "release": ("measurements", "run_events", "outbox_events", "audit_events"),
-    "dispatch": ("run_events", "outbox_events", "execution_receipts"),
+    "dispatch": (
+        "run_events",
+        "outbox_events",
+        "execution_receipts",
+        "reconciliation_results",
+        "audit_events",
+        "mutation_keys",
+    ),
 }
 UPDATES = {
     "application": {
@@ -150,6 +158,8 @@ def apply_runtime_grants(connection: Connection, schema: str, roles: Mapping[str
             grantee = sql.Identifier(role)
             connection.execute(sql.SQL("GRANT USAGE ON SCHEMA {} TO {}").format(namespace, grantee))
             readable = list(READ_TABLES)
+            if profile in {"application", "dispatch"}:
+                readable += ["reconciliation_requests", "reconciliation_results", "mutation_keys"]
             if profile == "application":
                 readable += [
                     "measurements",
@@ -183,6 +193,24 @@ def apply_runtime_grants(connection: Connection, schema: str, roles: Mapping[str
                         grantee,
                     )
                 )
+
+
+def validate_application_role(connection: Connection) -> None:
+    attributes = connection.execute("""SELECT rolsuper,rolcreatedb,rolcreaterole,
+        rolreplication,rolbypassrls FROM pg_roles WHERE rolname=current_user""").fetchone()
+    privileges = connection.execute("""SELECT
+        has_table_privilege(current_user,'measurements','INSERT') AS measurements,
+        has_table_privilege(current_user,'execution_receipts','INSERT') AS receipts,
+        has_schema_privilege(current_user,current_schema(),'CREATE') AS ddl,
+        has_table_privilege(current_user,'campaigns','INSERT') AS application""").fetchone()
+    if (
+        attributes is None
+        or any(attributes.values())
+        or privileges is None
+        or not privileges["application"]
+        or any(privileges[key] for key in ("measurements", "receipts", "ddl"))
+    ):
+        raise ConfigurationError("API requires the restricted application database role")
 
 
 def main() -> None:

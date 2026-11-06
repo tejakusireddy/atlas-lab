@@ -8,8 +8,9 @@ import psycopg
 import uvicorn
 from atlas_campaigns.analysis import analyze
 from atlas_campaigns.database import Connection, connect
-from atlas_campaigns.execution import enqueue_simulation, get_run, reconcile
+from atlas_campaigns.execution import enqueue_simulation, get_run, reconcile, request_reconciliation
 from atlas_campaigns.models import CreateCampaign
+from atlas_campaigns.permissions import validate_application_role
 from atlas_campaigns.secrets import ConfigurationError, production_profile
 from atlas_campaigns.service import (
     Conflict,
@@ -39,6 +40,8 @@ from atlas_api.auth import Principal, authentication_profile, principal
 
 def database() -> Iterator[Connection]:
     with connect() as connection:
+        if production_profile():
+            validate_application_role(connection)
         yield connection
 
 
@@ -141,10 +144,7 @@ def create_app() -> FastAPI:
     def ready(request: Request, connection: Database) -> dict[str, Any]:
         authentication_profile()
         if production_profile():
-            role = connection.execute("""SELECT rolsuper,rolcreatedb,rolcreaterole,
-                rolreplication,rolbypassrls FROM pg_roles WHERE rolname=current_user""").fetchone()
-            if role is None or any(role.values()):
-                raise ConfigurationError("Runtime database role is privileged")
+            validate_application_role(connection)
         connection.execute("SELECT 1 FROM schema_migrations LIMIT 1")
         return envelope(request, {"status": "ready"})
 
@@ -415,6 +415,7 @@ def create_app() -> FastAPI:
     @app.post("/v1/runs/{run_id}/reconcile")
     def reconcile_run(
         request: Request,
+        response: Response,
         run_id: UUID,
         command: VersionCommand,
         identity: Identity,
@@ -423,9 +424,11 @@ def create_app() -> FastAPI:
     ) -> dict[str, Any]:
         if not identity.has_role("reviewer"):
             raise HTTPException(403, "Reviewer role required")
+        if production_profile():
+            response.status_code = 202
         return envelope(
             request,
-            reconcile(
+            (request_reconciliation if production_profile() else reconcile)(
                 connection,
                 run_id,
                 command.expected_version,
@@ -433,6 +436,29 @@ def create_app() -> FastAPI:
                 idempotency_key,
                 UUID(request.state.request_id),
                 request.state.trace_id,
+            ),
+        )
+
+    @app.get("/v1/runs/{run_id}/reconciliation-requests")
+    def reconciliation_status(
+        request: Request,
+        run_id: UUID,
+        identity: Identity,
+        connection: Database,
+    ) -> dict[str, Any]:
+        if not identity.has_role("reviewer"):
+            raise HTTPException(403, "Reviewer role required")
+        get_run(connection, run_id, identity.actor, identity.role)
+        return envelope(
+            request,
+            list(
+                connection.execute(
+                    """SELECT q.id,q.expected_version,q.requested_at,
+                    COALESCE(r.status,'PENDING') AS status,r.reason,r.completed_at
+            FROM reconciliation_requests q LEFT JOIN reconciliation_results r ON r.request_id=q.id
+            WHERE q.run_id=%s ORDER BY q.requested_at,q.id""",
+                    (run_id,),
+                )
             ),
         )
 

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -66,3 +67,10 @@ def test_invalid_profile_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ATLAS_RUNTIME_PROFILE", "prodution")
     with pytest.raises(ConfigurationError, match="PROFILE"):
         connect()
+
+
+def test_secret_rejects_pipe_without_waiting_for_a_writer(tmp_path: Path) -> None:
+    filename = tmp_path / "password-pipe"
+    os.mkfifo(filename)
+    with pytest.raises(ConfigurationError, match="regular file"):
+        read_secret_file(str(filename))

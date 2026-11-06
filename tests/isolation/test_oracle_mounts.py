@@ -50,7 +50,7 @@ def test_only_release_uid_can_read_private_outcomes(tmp_path: Path) -> None:
             "-c",
             probe,
         )
-        for uid in (10001, 10003, 10004):
+        for uid in (10001, 10003, 10004, 10005):
             for mount in ([], ["-v", volume + ":/private-snapshot:ro"]):
                 result = subprocess.run(
                     [

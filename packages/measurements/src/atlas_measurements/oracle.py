@@ -11,6 +11,7 @@ from atlas_campaigns.database import Connection, connect
 from atlas_campaigns.execution import transition
 from atlas_campaigns.service import Conflict, NotFound
 from atlas_campaigns.telemetry import operation
+from atlas_domain.hashing import content_hash
 from atlas_instrument_gateway.spec import RunPlan
 from atlas_science.records import Observation
 from psycopg.types.json import Jsonb
@@ -74,6 +75,18 @@ def reveal(connection: Connection, run_id: UUID, snapshot: Path) -> list[dict[st
             return list(connection.execute("SELECT * FROM measurements WHERE run_id=%s", (run_id,)))
         if run["status"] != "SIMULATED":
             raise Conflict("Historical release requires successful simulation")
+        receipt = connection.execute(
+            "SELECT * FROM execution_receipts WHERE run_id=%s", (run_id,)
+        ).fetchone()
+        if (
+            receipt is None
+            or content_hash(receipt["receipt"]) != receipt["receipt_hash"]
+            or receipt["receipt"].get("run_id") != str(run_id)
+            or receipt["receipt"].get("protocol_hash") != run["protocol_hash"]
+            or receipt["receipt"].get("status") != "SIMULATED"
+            or receipt["receipt"].get("simulator_version") != "10.1.0"
+        ):
+            raise Conflict("Verified successful execution receipt required for historical release")
         batch = connection.execute(
             "SELECT * FROM experiment_batches WHERE id=%s", (run["batch_id"],)
         ).fetchone()
